@@ -1,0 +1,70 @@
+import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { ProductsService } from './products.service';
+import { CreateProductDto, DeleteProductDto, GetProductByIdDto, Product, UpdateProductDto, PatchProductDto } from './products.dto';
+
+@Controller('products')
+export class ProductsController {
+    constructor (private readonly productsService: ProductsService) {}
+
+    @Get()
+    @Header('Content-Type', 'application/json') //Optional
+    getProducts(
+        @Query('limit') limit?: number,
+        @Query('page') page?: number
+    ): Product[] {
+        return this.productsService.getProducts();
+    }
+
+    @Get(':id')
+    @Header('Content-Type', 'application/json')
+    getProductById(@Param('id') id: number): Product {
+        const searchProduct = new GetProductByIdDto(id);
+        return this.productsService.getProductById(searchProduct);
+    }
+
+    @Post()
+    @Header('Content-Type', 'application/json')
+    createProduct(
+        @Body('name') name: string,
+        @Body('description') description: string,
+        @Body('price') price: number,
+        @Body('imageUrl') imageUrl?: string
+    ): Product
+    {
+        const productDto = new CreateProductDto(name, description, price, imageUrl);
+        return this.productsService.createProduct(productDto);
+    }
+
+    @Put(':id')
+    @Header('Content-Type', 'application/json')
+    updateProduct(
+        @Param('id') id: number,
+        @Body('name') name: string,
+        @Body('description') description: string,
+        @Body('price') price: number,
+        @Body('imageUrl') imageUrl?: string
+    ): Product {
+        const updateProduct = new UpdateProductDto(id, name, description, price, imageUrl);
+        return this.productsService.updateProduct(updateProduct);
+    }
+
+    @Patch(':id')
+    @Header('Content-Type', 'application/json')
+    patchProduct(
+        @Param('id') id: number,
+        @Body('name') name?: string,
+        @Body('description') description?: string,
+        @Body('price') price?: number,
+        @Body('imageUrl') imageUrl?: string
+    ): Product {
+        const patchProduct = new PatchProductDto(id, name, description, price, imageUrl);
+        return this.productsService.patchProduct(patchProduct);
+    }
+
+    @Delete(':id')
+    @Header('Content-Type', 'application/json')
+    deleteProduct(@Param('id') id: number): Product[] {
+        const deleteProduct = new DeleteProductDto(id);
+        return this.productsService.deleteProduct(deleteProduct);
+    }
+}
