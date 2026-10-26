@@ -13,8 +13,13 @@ export class ProductsService {
     private products: Product[] = [];
     private nextId = 1;
 
-    getProducts(): Product[] {
-        return [...this.products];
+    getProducts(limit?: number, page?: number): Product[] {
+        let products = [...this.products];
+        if (page !== undefined && limit !== undefined) {
+            const startIndex = (page - 1) * limit;
+            products = products.slice(startIndex, startIndex + limit);
+        }
+        return products;
     }
 
     getProductById( id : GetProductByIdDto): Product {

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, ParseFilePipe, ParseFloatPipe, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto, DeleteProductDto, GetProductByIdDto, Product, UpdateProductDto, PatchProductDto } from './products.dto';
 
@@ -9,15 +9,15 @@ export class ProductsController {
     @Get()
     @Header('Content-Type', 'application/json') //Optional
     getProducts(
-        @Query('limit') limit?: number,
-        @Query('page') page?: number
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number
     ): Product[] {
-        return this.productsService.getProducts();
+        return this.productsService.getProducts(limit, page);
     }
 
     @Get(':id')
     @Header('Content-Type', 'application/json')
-    getProductById(@Param('id') id: number): Product {
+    getProductById(@Param('id', ParseIntPipe) id: number): Product {
         const searchProduct = new GetProductByIdDto(id);
         return this.productsService.getProductById(searchProduct);
     }
@@ -27,8 +27,8 @@ export class ProductsController {
     createProduct(
         @Body('name') name: string,
         @Body('description') description: string,
-        @Body('price') price: number,
-        @Body('imageUrl') imageUrl?: string
+        @Body('price', ParseFloatPipe) price: number,
+        @Body('imageUrl', new ParseFilePipe({ fileIsRequired: false })) imageUrl?: string
     ): Product
     {
         const productDto = new CreateProductDto(name, description, price, imageUrl);
@@ -38,11 +38,11 @@ export class ProductsController {
     @Put(':id')
     @Header('Content-Type', 'application/json')
     updateProduct(
-        @Param('id') id: number,
+        @Param('id', ParseIntPipe) id: number,
         @Body('name') name: string,
         @Body('description') description: string,
-        @Body('price') price: number,
-        @Body('imageUrl') imageUrl?: string
+        @Body('price', ParseFloatPipe) price: number,
+        @Body('imageUrl', new ParseFilePipe({ fileIsRequired: false })) imageUrl?: string
     ): Product {
         const updateProduct = new UpdateProductDto(id, name, description, price, imageUrl);
         return this.productsService.updateProduct(updateProduct);
@@ -51,11 +51,11 @@ export class ProductsController {
     @Patch(':id')
     @Header('Content-Type', 'application/json')
     patchProduct(
-        @Param('id') id: number,
+        @Param('id', ParseIntPipe) id: number,
         @Body('name') name?: string,
         @Body('description') description?: string,
-        @Body('price') price?: number,
-        @Body('imageUrl') imageUrl?: string
+        @Body('price', new ParseFloatPipe({ optional: true })) price?: number,
+        @Body('imageUrl', new ParseFilePipe({ fileIsRequired: false })) imageUrl?: string
     ): Product {
         const patchProduct = new PatchProductDto(id, name, description, price, imageUrl);
         return this.productsService.patchProduct(patchProduct);
@@ -63,7 +63,7 @@ export class ProductsController {
 
     @Delete(':id')
     @Header('Content-Type', 'application/json')
-    deleteProduct(@Param('id') id: number): Product[] {
+    deleteProduct(@Param('id', ParseIntPipe) id: number): Product[] {
         const deleteProduct = new DeleteProductDto(id);
         return this.productsService.deleteProduct(deleteProduct);
     }
