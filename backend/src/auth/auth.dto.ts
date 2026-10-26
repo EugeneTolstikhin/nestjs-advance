@@ -1,19 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, Matches, MinLength, IsOptional, IsEnum, IsDateString } from "class-validator";
-
-export class AuthDto {
-    @IsNotEmpty()
-    @IsEmail()
-    username: string;
-
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(6)
-    @Matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/,
-        { message: 'Password must include uppercase and lowercase letters, a number, and a special character (@$!%*?&), using only these characters.' }
-    )
-    password: string;
-}
+import { IsEmail, IsNotEmpty, IsString, Matches, MinLength, IsOptional, IsEnum, IsDateString, IsNumber } from "class-validator";
 
 export enum Nationality {
     USA = 'USA',
@@ -31,6 +16,69 @@ export enum Nationality {
     Mexico = 'Mexico',
     Russia = 'Russia',
     SouthAfrica = 'South Africa'
+}
+
+export enum TypeOfUser {
+    Buyer = 'buyer',
+    Seller = 'seller',
+    Admin = 'admin'
+}
+
+export class UserDto {
+    @IsNotEmpty()
+    @IsNumber()
+    id: number;
+
+    @IsNotEmpty()
+    @IsEmail()
+    username: string;
+
+    @IsNotEmpty()
+    @IsString()
+    encryptedPassword: string;
+
+    @IsNotEmpty()
+    @IsString()
+    firstName: string;
+
+    @IsNotEmpty()
+    @IsString()
+    lastName: string;
+
+    @IsNotEmpty()
+    @IsDateString()
+    dob: Date;
+
+    @IsOptional()
+    @IsString()
+    phone?: string;
+
+    @IsOptional()
+    @IsString()
+    pob?: string;
+
+    @IsNotEmpty()
+    @IsEnum(Nationality)
+    nationality: Nationality;
+
+    @IsNotEmpty()
+    @IsEnum(TypeOfUser)
+    typeOfUser: TypeOfUser;
+}
+
+export class AuthDto {
+    @IsNotEmpty()
+    @IsEmail()
+    username: string;
+
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(6)
+    @Matches(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/,
+        { message: 'Password must include uppercase and lowercase letters, a number, and a special character (@$!%*?&), using only these characters.' }
+    )
+    password: string;
 }
 
 export class RegisterDto {
@@ -76,6 +124,10 @@ export class RegisterDto {
     @IsNotEmpty()
     @IsEnum(Nationality)
     nationality: Nationality;
+
+    @IsNotEmpty()
+    @IsEnum(TypeOfUser)
+    typeOfUser: TypeOfUser;
 }
 
 export class PhoneRegisterDto {
