@@ -1,14 +1,18 @@
 import { Body, Controller, Post, UsePipes, ValidationPipe } from '@nestjs/common';
 import { AuthDto, PhoneRegisterDto, RegisterDto } from './auth.dto';
 import { PhoneAuthPipe } from './customPipe/phoneAuth';
+import { AuthService } from './auth.service';
 
 @Controller('auth')
 export class AuthController {
+    constructor(private readonly authService: AuthService) {}
+
     @Post('login')
+    @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     login(
         @Body('user') user: AuthDto,
     ) {
-        return { message: 'Login successful' };
+        return this.authService.login(user);
     }
 
     @Post('register')
@@ -16,7 +20,7 @@ export class AuthController {
     register(
         @Body('user') user: RegisterDto,
     ) {
-        return { message: 'Registration successful' };
+        return this.authService.register(user);
     }
 
     @Post('register-by-phone')

@@ -1,5 +1,8 @@
 # nestjs-advance
 
+See [AUTH.md](./AUTH.md) for JWT setup, registration/login examples, product
+permissions, and authentication tests.
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>

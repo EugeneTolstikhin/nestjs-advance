@@ -1,17 +1,16 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ProductsController } from './products/products.controller';
-import { ProductsService } from './products/products.service';
 import { ProductsModule } from './products/products.module';
-import { AuthController } from './auth/auth.controller';
 import { LoggingMiddleware } from './middleware/logging/logging.middleware';
-import { AuthService } from './auth/auth.service';
+import { AuthModule } from './auth/auth.module';
+import { UserInteractionService } from './user-interaction/user-interaction.service';
+import { UserInteractionModule } from './user-interaction/user-interaction.module';
 
 @Module({
-  imports: [ProductsModule],
-  controllers: [AppController, ProductsController, AuthController],
-  providers: [AppService, ProductsService, AuthService],
+  imports: [ProductsModule, AuthModule, UserInteractionModule],
+  controllers: [AppController],
+  providers: [AppService, UserInteractionService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

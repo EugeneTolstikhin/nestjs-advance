@@ -1,14 +1,15 @@
-import { Injectable, NestMiddleware } from "@nestjs/common";
-import { NextFunction, Request, Response } from "express";
+import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import { NextFunction, Response } from 'express';
+import { AuthRequest, extractBearerToken } from '../../auth/utils/auth-request';
 
 @Injectable()
 export class TokenMiddleware implements NestMiddleware {
-    use(req: Request, res: Response, next: NextFunction) {
-        const token = req.headers.authorization?.split(' ')[1]; // Assuming the token is sent as "Bearer <token>"
+    use(req: AuthRequest, res: Response, next: NextFunction) {
+        const token = extractBearerToken(req);
         if (!token) {
-            return res.status(401).json({ message: 'Unauthorized' });
+            throw new UnauthorizedException('Authorization must contain Bearer <token>');
         }
-        // Here you can add logic to validate the token
+        req.accessToken = token;
         next();
     }
 }

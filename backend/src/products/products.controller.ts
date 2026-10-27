@@ -1,6 +1,9 @@
-import { Body, Controller, Delete, Get, Header, Param, ParseFilePipe, ParseFloatPipe, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, ParseFilePipe, ParseFloatPipe, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto, DeleteProductDto, GetProductByIdDto, Product, UpdateProductDto, PatchProductDto } from './products.dto';
+import { AuthGuard } from '../auth/guard/auth.guard';
+import { Roles } from '../auth/guard/roles.decorator';
+import { TypeOfUser } from '../auth/auth.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -24,6 +27,8 @@ export class ProductsController {
 
     @Post()
     @Header('Content-Type', 'application/json')
+    @UseGuards(AuthGuard)
+    @Roles(TypeOfUser.Seller)
     createProduct(
         @Body('name') name: string,
         @Body('description') description: string,
@@ -37,6 +42,8 @@ export class ProductsController {
 
     @Put(':id')
     @Header('Content-Type', 'application/json')
+    @UseGuards(AuthGuard)
+    @Roles(TypeOfUser.Seller)
     updateProduct(
         @Param('id', ParseIntPipe) id: number,
         @Body('name') name: string,
@@ -50,6 +57,8 @@ export class ProductsController {
 
     @Patch(':id')
     @Header('Content-Type', 'application/json')
+    @UseGuards(AuthGuard)
+    @Roles(TypeOfUser.Seller)
     patchProduct(
         @Param('id', ParseIntPipe) id: number,
         @Body('name') name?: string,
@@ -63,6 +72,8 @@ export class ProductsController {
 
     @Delete(':id')
     @Header('Content-Type', 'application/json')
+    @UseGuards(AuthGuard)
+    @Roles(TypeOfUser.Seller, TypeOfUser.Admin)
     deleteProduct(@Param('id', ParseIntPipe) id: number): Product[] {
         const deleteProduct = new DeleteProductDto(id);
         return this.productsService.deleteProduct(deleteProduct);
