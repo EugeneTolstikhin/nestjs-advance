@@ -1,13 +1,15 @@
-import { Body, Controller, Post, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Post, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { AuthDto, PhoneRegisterDto, RegisterDto } from './auth.dto';
 import { PhoneAuthPipe } from './customPipe/phoneAuth';
 import { AuthService } from './auth.service';
+import { DurationInterceptor } from '../interceptor/duration/duration.interceptor';
 
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
     @Post('login')
+    @UseInterceptors(DurationInterceptor)
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     login(
         @Body('user') user: AuthDto,
@@ -16,6 +18,7 @@ export class AuthController {
     }
 
     @Post('register')
+    @UseInterceptors(DurationInterceptor)
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     register(
         @Body('user') user: RegisterDto,
