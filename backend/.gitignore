@@ -3,6 +3,10 @@
 /node_modules
 /build
 
+# Local SQLite database and journal files
+/database.sqlite
+/database.sqlite-*
+
 # TypeScript build cache
 *.tsbuildinfo
 
