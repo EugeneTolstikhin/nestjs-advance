@@ -3,6 +3,19 @@
 See [AUTH.md](./AUTH.md) for JWT setup, registration/login examples, product
 permissions, and authentication tests.
 
+## Response PII masking
+
+`PiiInterceptor` masks responses globally by default. Import `MaskPii` from
+`src/interceptor/pii/mask-pii.decorator` and use `@MaskPii(false)` on a route or
+controller to return its response unchanged. Use `@MaskPii()` or `@MaskPii(true)`
+to enable masking explicitly. A route's setting takes priority over its controller.
+
+Unmasked routes must enforce authentication and ownership or role permissions
+separately. The decorator only controls response presentation and does not grant
+access. Query parameters and client headers cannot disable masking. Opting out
+also skips password-field filtering, so return a safe response DTO that excludes
+passwords and hashes. Existing routes remain masked by default.
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
