@@ -3,9 +3,11 @@ import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { TokenMiddleware } from '../middleware/token/token.middleware';
 import { AuthModule } from '../auth/auth.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Product as ProductEntity } from './products.dto';
 
 @Module({
-    imports: [AuthModule],
+    imports: [AuthModule, TypeOrmModule.forFeature([ProductEntity])],
     controllers: [ProductsController],
     providers: [ProductsService],
 })

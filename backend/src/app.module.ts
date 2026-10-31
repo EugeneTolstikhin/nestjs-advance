@@ -8,9 +8,21 @@ import { AuthModule } from './auth/auth.module';
 import { UserInteractionService } from './user-interaction/user-interaction.service';
 import { UserInteractionModule } from './user-interaction/user-interaction.module';
 import { PiiInterceptor } from './interceptor/pii/pii.interceptor';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { join } from 'node:path';
 
 @Module({
-  imports: [ProductsModule, AuthModule, UserInteractionModule],
+  imports: [
+    ProductsModule,
+    AuthModule,
+    UserInteractionModule,
+    TypeOrmModule.forRoot({
+      type: 'better-sqlite3',
+      database: join(__dirname, '..', 'database.sqlite'),
+      entities: [join(__dirname, '**', '*.entity{.ts,.js}')],
+      synchronize: process.env.NODE_ENV !== 'production',
+    })
+  ],
   controllers: [AppController],
   providers: [AppService, UserInteractionService,
     {

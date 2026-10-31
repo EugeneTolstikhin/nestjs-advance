@@ -3,6 +3,20 @@
 See [AUTH.md](./AUTH.md) for JWT setup, registration/login examples, product
 permissions, and authentication tests.
 
+## SQLite database
+
+`AppModule` connects TypeORM to `backend/database.sqlite` using `better-sqlite3`.
+The file is created automatically when the application starts and is ignored by
+Git, along with its journal files. No separate database server is needed.
+
+Entity files matching `*.entity.ts` (or compiled `*.entity.js`) are discovered
+under the application directory. There are currently no entities, so no application
+tables are created. The existing user and product services still use in-memory
+arrays; persistence requires entities and injected TypeORM repositories.
+
+Schema synchronization is enabled for local development and disabled when
+`NODE_ENV=production`. Use migrations for production schema changes.
+
 ## Response PII masking
 
 `PiiInterceptor` masks responses globally by default. Import `MaskPii` from
