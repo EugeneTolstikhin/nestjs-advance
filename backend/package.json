@@ -22,7 +22,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "test:auth": "npm run build && node --test test/auth-authorization.cjs test/auth-flow.e2e.cjs",
     "test:auth:unit": "npm run build && node --test test/auth-authorization.cjs",
-    "test:products": "npm run build && node --test test/products-persistence.cjs"
+    "test:products": "npm run build && node --test test/products-persistence.cjs",
+    "test:views": "npm run build && node --test test/views.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -34,6 +35,7 @@
     "better-sqlite3": "^12.11.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "hbs": "^4.4.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "^1.1.2"

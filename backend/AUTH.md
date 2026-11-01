@@ -1,15 +1,20 @@
 # Authentication and product permissions
 
-From `backend/`, set a random JWT secret and start the application:
+The persistent JWT secret is stored in `backend/.env`. Startup loads this file
+automatically before Nest initializes. From `backend/`, start the application:
 
 ```sh
-export JWT_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
 npm run start:dev
 ```
 
 The application requires `JWT_SECRET` to contain at least 32 characters. Keep it
 private and use the same secret across restarts if existing tokens should remain
-valid. Generating a different secret invalidates those tokens.
+valid. Generating a different secret invalidates those tokens. The `.env` file
+is ignored by Git. Existing environment variables take precedence over `.env`;
+if you previously exported a temporary secret, run `unset JWT_SECRET` once.
+
+For a fresh clone, create a `.env` file and set `JWT_SECRET` to a value generated
+once with `openssl rand -hex 32`. No regeneration is needed on normal restarts.
 
 ## Get a token
 

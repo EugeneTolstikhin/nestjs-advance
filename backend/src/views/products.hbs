@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}} | Nest Shop</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="/shop">Nest Shop<span aria-hidden="true">.</span></a>
+        <span class="header-note">The collection</span>
+    </header>
+    <main>
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow">Browse the collection</p>
+            <h1 id="page-title">{{title}}</h1>
+            <p>A little something worth discovering.</p>
+        </section>
+        <section class="products" aria-label="Available products">
+            {{#each products}}
+            <article class="product">
+                {{#if imageUrl}}
+                <img class="product-image" src="{{imageUrl}}" alt="{{name}}" loading="lazy" referrerpolicy="no-referrer">
+                {{else}}
+                <div class="product-placeholder" aria-hidden="true">N.</div>
+                {{/if}}
+                <div class="product-details">
+                    <h2>{{name}}</h2>
+                    <p>{{description}}</p>
+                    <span class="price">{{price}}</span>
+                </div>
+            </article>
+            {{else}}
+            <div class="empty-state">
+                <h2>Good things are on their way.</h2>
+                <p>No products yet. Check back soon.</p>
+            </div>
+            {{/each}}
+        </section>
+    </main>
+    <footer>Nest Shop · Made for the everyday.</footer>
+</body>
+</html>

@@ -4,11 +4,12 @@ import { ProductsService } from './products.service';
 import { TokenMiddleware } from '../middleware/token/token.middleware';
 import { AuthModule } from '../auth/auth.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Product as ProductEntity } from './products.dto';
+import { Products as ProductEntity } from './products.entity';
+import { ProductsPageController } from './products-page.controller';
 
 @Module({
     imports: [AuthModule, TypeOrmModule.forFeature([ProductEntity])],
-    controllers: [ProductsController],
+    controllers: [ProductsController, ProductsPageController],
     providers: [ProductsService],
 })
 export class ProductsModule implements NestModule {

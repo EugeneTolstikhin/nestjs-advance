@@ -3,6 +3,30 @@
 See [AUTH.md](./AUTH.md) for JWT setup, registration/login examples, product
 permissions, and authentication tests.
 
+## Handlebars UI
+
+The HTML UI is rendered by NestJS inside `backend/`; no separate frontend project
+is needed. The JWT secret is loaded automatically from `backend/.env`. Run
+`npm run start:dev` and open `http://localhost:3000/shop`.
+
+- `src/products/products-page.controller.ts`: public HTML page, using `@Render('products')`.
+- `src/views/products.hbs`: Handlebars template.
+- `src/public/styles.css`: stylesheet, served at `/assets/styles.css`.
+- `src/views.config.ts`: Express view engine and static asset setup.
+
+The page lists products from SQLite and shows an empty state until products are
+added. It does not include login or product editing forms. JSON endpoints remain
+under `/products`; `/` still returns the existing greeting.
+
+Nest CLI copies templates and public assets into `dist/` during builds and watches
+them during development. `npm run build` followed by `npm run start:prod` also
+serves the UI. Handlebars `{{value}}` expressions escape user text; avoid triple
+braces for user-supplied content.
+
+Run `npm run test:views` to verify rendering with an isolated SQLite database and
+the built templates. Consider a separate `frontend/` only if you later introduce
+an independently built frontend application.
+
 ## SQLite database
 
 `AppModule` connects TypeORM to `backend/database.sqlite` using `better-sqlite3`.
