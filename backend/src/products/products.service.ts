@@ -1,6 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { 
-    Product,
     CreateProductDto,
     UpdateProductDto,
     DeleteProductDto,
@@ -8,7 +7,7 @@ import {
     PatchProductDto,
  } from './products.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { Products as ProductEntity } from './products.entity';
 
 @Injectable()
@@ -17,80 +16,85 @@ export class ProductsService {
         @InjectRepository(ProductEntity)
         private readonly productRepository: Repository<ProductEntity>
     ) {}
-    private products: Product[] = [];
-    private nextId = 1;
-
-    getProducts(limit?: number, page?: number): Product[] {
-        let products = [...this.products];
-        if (page !== undefined && limit !== undefined) {
-            const startIndex = (page - 1) * limit;
-            products = products.slice(startIndex, startIndex + limit);
+    async getProducts(limit?: number, page?: number): Promise<ProductEntity[]> {
+        if ((limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) ||
+            (page !== undefined && (!Number.isSafeInteger(page) || page < 1))) {
+            throw new BadRequestException('limit and page must be positive integers');
         }
-        return products;
+        if (page !== undefined && limit === undefined) {
+            throw new BadRequestException('limit is required when page is provided');
+        }
+        const skip = limit === undefined ? undefined : ((page ?? 1) - 1) * limit;
+        if (skip !== undefined && !Number.isSafeInteger(skip)) {
+            throw new BadRequestException('Pagination offset is too large');
+        }
+        return this.productRepository.find({
+            order: { createdAt: 'ASC', id: 'ASC' },
+            take: limit,
+            skip,
+        });
     }
 
-    getProductById( id : GetProductByIdDto): Product {
-        const product = this.products.find(product => product.id === id.id);
+    async getProductById({ id }: GetProductByIdDto): Promise<ProductEntity> {
+        const product = await this.productRepository.findOneBy({ id });
         if (!product) {
-            throw new NotFoundException(`Product with ID ${id.id} not found`);
+            throw new NotFoundException(`Product with ID ${id} not found`);
         }
         return product;
     }
 
-    createProduct(product: CreateProductDto): Product {
-        const productsAmountBeforeCreate = this.products.length;
-        const newProduct = new Product(
-            this.nextId++,
-            product.name,
-            product.description,
-            product.price,
-            product.imageUrl,
-        );
-        this.products.push(newProduct);
-        if (productsAmountBeforeCreate === this.products.length) {
-            throw new BadRequestException('Failed to create product');
-        }
-        return newProduct;
+    async createProduct(product: CreateProductDto): Promise<ProductEntity> {
+        const productEntity = this.productRepository.create({
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            imageUrl: product.imageUrl,
+        });
+        return this.saveProduct(productEntity);
     }
 
-    updateProduct(updatedProduct: UpdateProductDto): Product {
-        const index = this.products.findIndex(product => product.id === updatedProduct.id);
-        if (index !== -1) {
-            const existingProduct = this.products[index];
-            this.products[index] = new Product(
-                existingProduct.id,
-                updatedProduct.name ?? existingProduct.name,
-                updatedProduct.description ?? existingProduct.description,
-                updatedProduct.price ?? existingProduct.price,
-                updatedProduct.imageUrl ?? existingProduct.imageUrl,
-            );
-            return this.products[index];
-        }
-        throw new NotFoundException(`Product with ID ${updatedProduct.id} not found`);
+    async updateProduct(id: string, updatedProduct: UpdateProductDto): Promise<ProductEntity> {
+        const product = await this.getProductById({ id });
+        product.name = updatedProduct.name;
+        product.description = updatedProduct.description;
+        product.price = updatedProduct.price;
+        // PUT replaces editable fields; omitting the optional image removes it.
+        product.imageUrl = updatedProduct.imageUrl ?? null;
+        return this.saveProduct(product);
     }
 
-    patchProduct(updatedProduct: PatchProductDto): Product {
-        const index = this.products.findIndex(product => product.id === updatedProduct.id);
-        if (index !== -1) {
-            const existingProduct = this.products[index];
-            this.products[index] = new Product(
-                existingProduct.id,
-                updatedProduct.name ?? existingProduct.name,
-                updatedProduct.description ?? existingProduct.description,
-                updatedProduct.price ?? existingProduct.price,
-                updatedProduct.imageUrl ?? existingProduct.imageUrl,
-            );
-            return this.products[index];
+    async patchProduct(id: string, updatedProduct: PatchProductDto): Promise<ProductEntity> {
+        const product = await this.getProductById({ id });
+        product.name = updatedProduct.name ?? product.name;
+        product.description = updatedProduct.description ?? product.description;
+        product.price = updatedProduct.price ?? product.price;
+        if (updatedProduct.imageUrl !== undefined) {
+            product.imageUrl = updatedProduct.imageUrl;
         }
-        throw new NotFoundException(`Product with ID ${updatedProduct.id} not found`);
+        return this.saveProduct(product);
     }
 
-    deleteProduct(id: DeleteProductDto): Product[] {
-        const productsAmountBeforeDelete = this.products.length;
-        this.products = this.products.filter(product => product.id !== id.id);
-        if (productsAmountBeforeDelete === this.products.length) {
-            throw new NotFoundException(`Product with ID ${id.id} not found`);
+    async deleteProduct({ id }: DeleteProductDto): Promise<ProductEntity[]> {
+        const result = await this.productRepository.delete({ id });
+        if (!result.affected) {
+            throw new NotFoundException(`Product with ID ${id} not found`);
         }
-        return this.products;
+        // Keep the existing API contract: return the remaining products.
+        return this.getProducts();
     }
+
+    private async saveProduct(product: ProductEntity): Promise<ProductEntity> {
+        try {
+            return await this.productRepository.save(product);
+        } catch (error) {
+            // The database constraint also protects against simultaneous requests.
+            if (error instanceof QueryFailedError &&
+                error.driverError.code === 'SQLITE_CONSTRAINT_UNIQUE' &&
+                error.driverError.message === 'UNIQUE constraint failed: products.name') {
+                throw new ConflictException('A product with this name already exists');
+            }
+            throw error;
+        }
+    }
+
 }

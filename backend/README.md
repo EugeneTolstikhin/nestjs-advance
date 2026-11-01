@@ -10,9 +10,19 @@ The file is created automatically when the application starts and is ignored by
 Git, along with its journal files. No separate database server is needed.
 
 Entity files matching `*.entity.ts` (or compiled `*.entity.js`) are discovered
-under the application directory. There are currently no entities, so no application
-tables are created. The existing user and product services still use in-memory
-arrays; persistence requires entities and injected TypeORM repositories.
+under the application directory. The product entity maps to the `products` table.
+All product CRUD operations use TypeORM repositories; users still use in-memory
+storage.
+
+Product reads support optional `limit` and `page` query parameters. Both must be
+positive integers. `limit` alone returns the first page; `page` requires `limit`.
+Without either parameter, all products are returned, ordered by creation time
+and ID. PUT replaces editable fields (an omitted image URL becomes null), while
+PATCH preserves omitted fields. DELETE returns the remaining products. Duplicate
+names return 409, and reading, editing or deleting a missing product returns 404.
+
+Run the SQLite CRUD regression tests with `npm run test:products`. These use an
+isolated in-memory database and do not modify `database.sqlite`.
 
 Schema synchronization is enabled for local development and disabled when
 `NODE_ENV=production`. Use migrations for production schema changes.

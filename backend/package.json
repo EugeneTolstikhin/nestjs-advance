@@ -21,7 +21,8 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "test:auth": "npm run build && node --test test/auth-authorization.cjs test/auth-flow.e2e.cjs",
-    "test:auth:unit": "npm run build && node --test test/auth-authorization.cjs"
+    "test:auth:unit": "npm run build && node --test test/auth-authorization.cjs",
+    "test:products": "npm run build && node --test test/products-persistence.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
