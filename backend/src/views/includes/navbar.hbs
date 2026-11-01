@@ -1,0 +1,30 @@
+<header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Nest Shop home">
+            <svg class="brand-logo" viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false">
+                <rect width="32" height="32" rx="9" fill="currentColor" />
+                <path d="M10 23V9l12 14V9" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span class="brand-name">Nest Shop<span aria-hidden="true">.</span></span>
+        </a>
+
+        <div class="nav-actions">
+            {{#if user}}
+            <div class="nav-user">
+                <span class="user-avatar" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                        <circle cx="12" cy="8" r="4" fill="currentColor" />
+                        <path d="M4 22v-2a8 8 0 0 1 16 0v2" fill="currentColor" />
+                    </svg>
+                </span>
+                <span class="user-name">
+                    {{#if user.name}}{{user.name}}{{else}}{{#if user.username}}{{user.username}}{{else}}My account{{/if}}{{/if}}
+                </span>
+            </div>
+            {{else}}
+            <a class="nav-button nav-button-secondary" href="/auth/login">Login</a>
+            <a class="nav-button nav-button-primary" href="/auth/register">Register</a>
+            {{/if}}
+        </div>
+    </nav>
+</header>

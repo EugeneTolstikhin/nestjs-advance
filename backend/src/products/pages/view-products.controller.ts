@@ -1,5 +1,5 @@
 import { Controller, Get, Render } from '@nestjs/common';
-import { ProductsService } from './products.service';
+import { ProductsService } from '../products.service';
 
 @Controller('shop')
 export class ProductsPageController {

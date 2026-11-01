@@ -11,12 +11,21 @@ is needed. The JWT secret is loaded automatically from `backend/.env`. Run
 
 - `src/products/products-page.controller.ts`: public HTML page, using `@Render('products')`.
 - `src/views/products.hbs`: Handlebars template.
+- `src/views/includes/navbar.hbs`: shared navigation, included with `{{> navbar}}`.
 - `src/public/styles.css`: stylesheet, served at `/assets/styles.css`.
 - `src/views.config.ts`: Express view engine and static asset setup.
 
 The page lists products from SQLite and shows an empty state until products are
 added. It does not include login or product editing forms. JSON endpoints remain
-under `/products`; `/` still returns the existing greeting.
+under `/products`; `/` redirects to `/shop`.
+
+The navbar logo links to `/`. Without a `user` in the server-rendered view model,
+it displays Login and Register links to `/auth/login` and `/auth/register`. With
+`user: { name: 'Eugene' }`, it displays a generic avatar and the escaped name;
+`user.username` is the fallback when `name` is absent. Pass user data only after
+server-side authentication. The current JWT API does not set browser sessions,
+and GET login/register pages are not implemented, so the shop currently shows the
+guest state. These links are destinations for the future authentication pages.
 
 Nest CLI copies templates and public assets into `dist/` during builds and watches
 them during development. `npm run build` followed by `npm run start:prod` also
@@ -26,6 +35,65 @@ braces for user-supplied content.
 Run `npm run test:views` to verify rendering with an isolated SQLite database and
 the built templates. Consider a separate `frontend/` only if you later introduce
 an independently built frontend application.
+
+## OTP sender factory
+
+`src/user-interaction/configs/otp.config.json` configures separate `phone` and
+`email` providers. Both are initially `null`; LOG is the default delivery channel.
+Missing files, absent providers, or missing API URLs fall back to LOG. Malformed
+JSON or invalid configuration types/URLs still raise configuration errors.
+
+Inject the abstract `OtpFactory` exported by `UserInteractionModule`:
+
+```ts
+constructor(private readonly otpFactory: OtpFactory) {}
+
+async sendPhoneCode(phone: string) {
+    const sender = await this.otpFactory.create('phone');
+    return sender.sendOtp(phone);
+}
+```
+
+Use `create('email')` for email, or `create()` / `create('LOG')` for LOG regardless
+of the configured providers. `UserInteractionService.sendOtp(recipient)` detects
+the channel automatically: E.164 phone numbers (for example `+4917612345678`)
+select phone, email addresses select email, and an absent recipient selects LOG.
+If the matching provider or its API is absent, the factory returns a LOG sender.
+Invalid recipients return 400. Provider delivery failures are not silently retried
+through LOG. LOG delivery is blocked when `NODE_ENV=production`.
+
+Send `POST /user-interaction` with JSON:
+
+```json
+{ "recipient": "+4917612345678" }
+```
+
+Or use `{"recipient":"person@example.com"}` for email and `{}` for explicit
+default behavior. The LOG sender writes a six-digit code to the development log
+without returning it in the response.
+
+For future provider integrations, a channel setting can look like:
+
+```json
+{
+  "provider": "seven",
+  "api": {
+    "url": "https://gateway.seven.io/api/rcs/messages",
+    "keyEnv": "SEVEN_API_KEY"
+  }
+}
+```
+
+Store API credentials in environment variables, not this JSON. Non-LOG phone
+configuration selects `SmsOtpHandler`; email selects `EmailOtpHandler`. Both are
+integration placeholders and currently return 501 instead of sending or claiming
+delivery. Provider-specific payloads, authentication and RCS/SMS routing must be
+implemented in those adapters. OTP storage/verification is not part of this demo.
+
+`JsonOtpConfigSource` reads the JSON each time a sender is requested. To load
+settings from database records later, implement `OtpConfigSource.load()` and
+replace its provider binding in `UserInteractionModule`. The factory and its
+callers stay unchanged. The JSON is copied into `dist` by the Nest CLI.
 
 ## SQLite database
 

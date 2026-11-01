@@ -70,3 +70,25 @@ test('stylesheet is included in build output and the UI has its own route', asyn
     assert.equal(Reflect.getMetadata('path', ProductsPageController), 'shop');
     assert.equal(app.getHttpAdapter().getInstance().get('view engine'), 'hbs');
 });
+
+test('guest navbar links home and shows Login/Register without an avatar', async () => {
+    const html = await render({ title: 'Products', products: [] });
+    assert.match(html, /href="\/" aria-label="Nest Shop home"/);
+    assert.match(html, /href="\/auth\/login">Login<\/a>/);
+    assert.match(html, /href="\/auth\/register">Register<\/a>/);
+    assert.doesNotMatch(html, /class="user-avatar"/);
+});
+
+test('authenticated navbar shows an avatar and escapes the user name', async () => {
+    const html = await render({ title: 'Products', products: [], user: { name: '<script>Eugene</script>' } });
+    assert.match(html, /class="user-avatar"/);
+    assert.match(html, /&lt;script&gt;Eugene&lt;\/script&gt;/);
+    assert.doesNotMatch(html, /href="\/auth\/(login|register)"/);
+    assert.doesNotMatch(html, /<script>/);
+});
+
+test('authenticated navbar falls back to username when no display name is supplied', async () => {
+    const html = await render({ title: 'Products', products: [], user: { username: 'eugene@example.com' } });
+    assert.match(html, /eugene@example.com/);
+    assert.match(html, /class="user-avatar"/);
+});

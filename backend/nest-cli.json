@@ -4,7 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": ["views/**/*.hbs", "public/**/*"],
+    "assets": ["views/**/*.hbs", "public/**/*", "user-interaction/configs/*.json"],
     "watchAssets": true
   }
 }
