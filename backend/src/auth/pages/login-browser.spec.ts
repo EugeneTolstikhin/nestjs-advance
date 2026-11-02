@@ -4,6 +4,7 @@ import type { Model } from 'survey-core';
 import { loginCodeForm, loginForm } from './login-form';
 
 const script = readFileSync('src/public/login.js', 'utf8');
+const keyboard = readFileSync('src/public/survey-keyboard.js', 'utf8');
 const core = readFileSync('node_modules/survey-core/survey.core.min.js', 'utf8');
 const ui = readFileSync('node_modules/survey-js-ui/survey-js-ui.min.js', 'utf8');
 
@@ -25,7 +26,7 @@ describe('Login page with the actual SurveyJS renderer', () => {
         window = new Window({ settings: { enableJavaScriptEvaluation: true,
             suppressInsecureJavaScriptEnvironmentWarning: true } });
         document = window.document;
-        window.eval(core); window.eval(ui);
+        window.eval(core); window.eval(ui); window.eval(keyboard);
         globals = window as unknown as typeof globals;
         document.body.innerHTML = '<div id="login-form"></div><p id="login-status"></p><div id="login-code-actions" hidden></div><button id="login-resend"></button><button id="login-back"></button>';
         const OriginalModel = globals.Survey.Model;
@@ -60,6 +61,54 @@ describe('Login page with the actual SurveyJS renderer', () => {
             expect(codeInput()!.disabled).toBe(false);
         });
     }
+
+    function type(selector: string, value: string) {
+        const input = document.querySelector<HTMLInputElement>(selector)!;
+        input.focus(); input.value = value;
+        input.dispatchEvent(new window.Event('input', { bubbles: true }));
+        return input;
+    }
+    function enter(input: Element) {
+        input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
+    }
+
+    it('submits the latest email and password on Enter without clicking Continue', async () => {
+        await init();
+        type('input[type="email"]', 'buyer@example.com');
+        const password = type('input[type="password"]', 'Password1!');
+        enter(password);
+        await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
+        const calls = fetchMock.mock.calls.filter(([path]) => path === '/auth/login');
+        expect(calls).toHaveLength(1);
+        expect(JSON.parse(calls[0][1].body)).toEqual({ user: { username: 'buyer@example.com', password: 'Password1!' } });
+    });
+
+    it('shows validation errors instead of sending incomplete credentials on Enter', async () => {
+        await init();
+        const password = document.querySelector('input[type="password"]')!;
+        password.focus(); enter(password);
+        await vi.waitFor(() => expect(current().getQuestionByName('email').errors.length).toBeGreaterThan(0));
+        expect(fetchMock.mock.calls.filter(([path]) => path !== '/auth/login/schema')).toHaveLength(0);
+        expect(redirect).not.toHaveBeenCalled();
+    });
+
+    it.each(['email', 'phone'] as const)('requests a %s code and verifies it using Enter, without duplicate requests', async method => {
+        await init(); current().setValue('method', method);
+        const selector = method === 'email' ? 'input[type="email"]' : 'input[type="tel"]';
+        await vi.waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
+        const input = type(selector, method === 'email' ? 'buyer@example.com' : '+4917612345678');
+        enter(input); enter(input);
+        await vi.waitFor(() => expect(codeInput()).not.toBeNull());
+        expect(fetchMock.mock.calls.filter(([path]) => path === '/auth/login/otp')).toHaveLength(1);
+        const code = type('input[autocomplete="one-time-code"]', '12');
+        enter(code);
+        expect(fetchMock.mock.calls.filter(([path]) => path === '/auth/login/otp/verify')).toHaveLength(0);
+        type('input[autocomplete="one-time-code"]', '012345'); enter(code); enter(code);
+        await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
+        const calls = fetchMock.mock.calls.filter(([path]) => path === '/auth/login/otp/verify');
+        expect(calls).toHaveLength(1);
+        expect(JSON.parse(calls[0][1].body).code).toBe('012345');
+    });
 
     it.each(['email', 'phone'] as const)('renders the OTP input after %s login and submits the entered code', async method => {
         await init();

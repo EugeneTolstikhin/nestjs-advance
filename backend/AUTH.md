@@ -1,5 +1,53 @@
 # Registration, users, and authentication
 
+## One account for buying and selling
+
+Each verified email/phone belongs to one MongoDB user, regardless of role. Accounts
+store `roles: ['buyer']`, `roles: ['seller']` or `roles: ['buyer', 'seller']`, with
+separate `buyerProfile` and `sellerProfile` fields. Credentials, verified contacts
+and the user ID are shared. Registration's `typeOfUser` selects only the initial
+role; it is not the stored account shape or a JWT claim anymore.
+
+After login, open **My account** (`/account`) in the navbar. The SurveyJS profile
+forms enable the other role and save each profile independently. The initial role
+is retained. Once both roles are enabled, buying and selling use the same session;
+no role switch or second registration is required. Existing seller-only accounts
+can likewise enable buying. Profile fields remain optional, as in registration.
+
+The authenticated API is:
+
+- `GET /account`: account page, including the enabled roles.
+- `GET /account/schema`: SurveyJS schemas and the owner's current profile values.
+- `POST /account/buyer`: buyer profile, such as `{ "deliveryAddress": "Home address" }`.
+- `POST /account/seller`: seller profile, such as `{ "companyName": "My shop" }`.
+
+POSTs replace only that role's profile, atomically add its role without duplicates,
+and return a refreshed JWT/session with a refreshed HttpOnly cookie. Omitted fields
+in that profile are cleared. The other profile is preserved. API clients must use
+the returned token for newly enabled permissions; older tokens retain their claims
+until expiry. New JWTs contain `sub` and `roles`; role guards permit an operation
+when any required role matches. Public registration/profile requests cannot assign
+admin access. Account endpoints accept the session cookie or a Bearer token;
+mutations require JSON and reject cross-origin browser requests. Product write
+APIs continue to require Bearer tokens.
+
+Profile endpoints identify the owner solely from the verified session/JWT. A request
+cannot submit another user ID, edit contacts or grant arbitrary roles. The owner's
+profile response is unmasked and marked `Cache-Control: no-store` so their own
+saved values can be edited. No public endpoint exposes these profiles.
+
+MongoDB unique contact indexes remain global. A second registration with an
+existing contact returns 409 and directs the user to log in. If email and phone
+belong to different existing accounts, registration fails; accounts are never
+automatically merged and contacts are never transferred.
+
+On the next user-database connection an idempotent migration converts existing
+`typeOfUser`/`profile` documents to `roles` and the corresponding profile field,
+preserving user IDs, credentials, contacts, verification dates and timestamps.
+Old signed tokens with `typeOfUser` are accepted for their remaining lifetime.
+Already-pending Redis registrations are normalized when inserted after verification.
+New sessions and newly saved documents use only the new role/profile structure.
+
 ## Start locally
 
 MongoDB Community 8.0 is installed locally. Start it if necessary:

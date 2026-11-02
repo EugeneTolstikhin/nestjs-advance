@@ -1,9 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { AuthDto, RegisterDto } from './auth.dto';
+import { AuthDto, BuyerProfileDto, RegisterDto, SellerProfileDto, TypeOfUser } from './auth.dto';
 import { RegistrationService } from './registration.service';
 import { StoredUser, UsersRepository } from './users.repository';
+import { userRoles } from './utils/user-roles';
 
 @Injectable()
 export class AuthService {
@@ -26,12 +27,26 @@ export class AuthService {
     }
 
     async createSession(user: StoredUser) {
+        const roles = userRoles(user);
+        if (!roles.length) throw new UnauthorizedException('Account has no valid roles');
         return {
-            access_token: await this.jwtService.signAsync({ sub: user._id, typeOfUser: user.typeOfUser }),
+            access_token: await this.jwtService.signAsync({ sub: user._id, roles }),
             token_type: 'Bearer',
             expires_in: 900,
             user: this.publicUser(user),
         };
+    }
+
+    async account(id: string) {
+        const user = await this.users.findById(id);
+        if (!user) throw new UnauthorizedException('Account no longer exists');
+        return { user: this.publicUser(user), buyerProfile: user.buyerProfile ?? {}, sellerProfile: user.sellerProfile ?? {} };
+    }
+
+    async saveProfile(id: string, role: TypeOfUser.Buyer | TypeOfUser.Seller, profile: BuyerProfileDto | SellerProfileDto) {
+        const user = await this.users.saveProfile(id, role, profile);
+        if (!user) throw new UnauthorizedException('Account no longer exists');
+        return this.createSession(user);
     }
 
     async browserUser(token: string) {
@@ -54,7 +69,7 @@ export class AuthService {
             id: user._id,
             username: user.email ?? user.phone,
             name: `${user.firstName} ${user.lastName}`,
-            typeOfUser: user.typeOfUser,
+            roles: userRoles(user),
         };
     }
 }

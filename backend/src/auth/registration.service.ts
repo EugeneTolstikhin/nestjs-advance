@@ -58,16 +58,16 @@ export class RegistrationService {
             throw new BadRequestException('Profile fields must match the selected user type');
         }
         if (Date.parse(dto.dob) > Date.now()) throw new BadRequestException('Date of birth cannot be in the future');
-        if (await this.users.contactExists(email, phone)) throw new ConflictException('Email or phone is already registered');
+        if (await this.users.contactExists(email, phone)) throw new ConflictException('Email or phone is already registered. Log in to manage buyer and seller profiles.');
         const now = Date.now();
         const user: StoredUser = {
             _id: randomUUID(), passwordHash: await bcrypt.hash(dto.password, 10),
             firstName: dto.firstName.trim(), lastName: dto.lastName.trim(),
-            dob: dto.dob, nationality: dto.nationality, typeOfUser: dto.typeOfUser,
-            profile: dto.typeOfUser === TypeOfUser.Buyer
-                ? { ...(dto.buyerProfile ?? {}) } : { ...(dto.sellerProfile ?? {}) },
+            dob: dto.dob, nationality: dto.nationality, roles: [dto.typeOfUser],
             createdAt: new Date(now), updatedAt: new Date(now),
         };
+        if (dto.typeOfUser === TypeOfUser.Buyer) user.buyerProfile = { ...(dto.buyerProfile ?? {}) };
+        else user.sellerProfile = { ...(dto.sellerProfile ?? {}) };
         if (email) user.email = email;
         if (phone) user.phone = phone;
         if (dto.pob) user.pob = dto.pob;

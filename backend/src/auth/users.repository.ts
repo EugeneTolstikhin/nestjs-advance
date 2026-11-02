@@ -1,6 +1,8 @@
 import { ConflictException, Injectable, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { Collection, MongoClient, MongoServerError } from 'mongodb';
-import type { BuyerProfileDto, Nationality, SellerProfileDto, TypeOfUser } from './auth.dto';
+import { TypeOfUser } from './auth.dto';
+import type { BuyerProfileDto, Nationality, SellerProfileDto } from './auth.dto';
+import { userRoles } from './utils/user-roles';
 
 export interface StoredUser {
     _id: string;
@@ -12,8 +14,9 @@ export interface StoredUser {
     dob: string;
     pob?: string;
     nationality: Nationality;
-    typeOfUser: TypeOfUser.Buyer | TypeOfUser.Seller;
-    profile: BuyerProfileDto | SellerProfileDto;
+    roles: TypeOfUser[];
+    buyerProfile?: BuyerProfileDto;
+    sellerProfile?: SellerProfileDto;
     emailVerifiedAt?: Date;
     phoneVerifiedAt?: Date;
     createdAt: Date;
@@ -45,6 +48,17 @@ export class UsersRepository implements OnModuleDestroy {
         const collection = this.client.db(process.env.MONGODB_DATABASE ?? 'nestjs_advance').collection<StoredUser>('users');
         await collection.createIndex({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
         await collection.createIndex({ phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: 'string' } } });
+        // Idempotent migration: preserve identity, verified contacts and profile data.
+        await collection.updateMany({ roles: { $exists: false }, typeOfUser: { $in: Object.values(TypeOfUser) } }, [
+            { $set: {
+                roles: ['$typeOfUser'],
+                buyerProfile: { $cond: [{ $eq: ['$typeOfUser', TypeOfUser.Buyer] },
+                    { $ifNull: ['$buyerProfile', { $ifNull: ['$profile', {}] }] }, { $ifNull: ['$buyerProfile', '$$REMOVE'] }] },
+                sellerProfile: { $cond: [{ $eq: ['$typeOfUser', TypeOfUser.Seller] },
+                    { $ifNull: ['$sellerProfile', { $ifNull: ['$profile', {}] }] }, { $ifNull: ['$sellerProfile', '$$REMOVE'] }] },
+            } },
+            { $unset: ['typeOfUser', 'profile'] },
+        ]);
         return collection;
     }
 
@@ -57,9 +71,17 @@ export class UsersRepository implements OnModuleDestroy {
     }
 
     async insertVerified(user: StoredUser): Promise<StoredUser> {
+        // A pending Redis registration may have been created before this upgrade.
+        const legacy = user as StoredUser & { typeOfUser?: TypeOfUser; profile?: BuyerProfileDto | SellerProfileDto };
+        const normalized: StoredUser = { ...user, roles: userRoles(legacy) };
+        if (!normalized.roles.length) throw new Error('User must have at least one valid role');
+        if (legacy.typeOfUser === TypeOfUser.Buyer && !normalized.buyerProfile) normalized.buyerProfile = (legacy.profile as BuyerProfileDto) ?? {};
+        if (legacy.typeOfUser === TypeOfUser.Seller && !normalized.sellerProfile) normalized.sellerProfile = (legacy.profile as SellerProfileDto) ?? {};
+        delete (normalized as typeof legacy).typeOfUser;
+        delete (normalized as typeof legacy).profile;
         try {
-            await (await this.collection()).insertOne(user);
-            return user;
+            await (await this.collection()).insertOne(normalized);
+            return normalized;
         } catch (error) {
             if (error instanceof MongoServerError && error.code === 11000) {
                 throw new ConflictException('Email or phone is already registered');
@@ -75,6 +97,16 @@ export class UsersRepository implements OnModuleDestroy {
 
     async findById(id: string): Promise<StoredUser | null> {
         return (await this.collection()).findOne({ _id: id });
+    }
+
+    async saveProfile(id: string, role: TypeOfUser.Buyer | TypeOfUser.Seller, profile: BuyerProfileDto | SellerProfileDto) {
+        const field = role === TypeOfUser.Buyer ? 'buyerProfile' : 'sellerProfile';
+        const fields = role === TypeOfUser.Buyer ? ['deliveryAddress'] : ['companyName', 'businessAddress', 'vatNumber'];
+        const data = Object.fromEntries(Object.entries(profile).filter(([key, value]) => fields.includes(key) && typeof value === 'string'));
+        // Each update touches only its own profile; concurrent role additions are safe.
+        return (await this.collection()).findOneAndUpdate({ _id: id }, {
+            $addToSet: { roles: role }, $set: { [field]: data, updatedAt: new Date() },
+        }, { returnDocument: 'after' });
     }
 
     async onModuleDestroy(): Promise<void> {

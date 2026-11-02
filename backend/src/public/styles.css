@@ -55,14 +55,19 @@ footer { max-width: 1160px; margin: auto; padding: 24px 32px; border-top: 1px so
 #registration-form .sd-theme-root,
 #registration-form.sd-theme-root,
 #login-form .sd-theme-root,
-#login-form.sd-theme-root {
+#login-form.sd-theme-root,
+.account-survey .sd-theme-root,
+.account-survey.sd-theme-root {
     --sjs2-color-project-brand-600: #526b44;
     --sjs2-typography-font-family-text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --sjs2-layout-component-page-content-area-padding-horizontal: 28px;
     --sjs2-layout-component-page-content-area-padding-top: 20px;
     --sjs2-layout-component-page-content-area-padding-bottom: 20px;
 }
-#registration-form .sd-root-modern, #login-form .sd-root-modern { min-height: 0; }
+#registration-form .sd-root-modern, #login-form .sd-root-modern, .account-survey .sd-root-modern { min-height: 0; }
+.account-profile { margin: 32px 0; }
+.account-profile h2 { font-family: Georgia, serif; font-size: 30px; font-weight: 400; }
+.account-role { display: inline-block; padding: 5px 12px; border-radius: 20px; background: #e7eadf; color: #3b5330; }
 .verification { padding: 32px; }
 .verification h2 { font-family: Georgia, serif; font-size: 30px; font-weight: 400; }
 .form-status { min-height: 24px; line-height: 1.6; color: #3b5330; overflow-wrap: anywhere; }
@@ -80,7 +85,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     .site-header, footer { padding: 22px; }
     main { padding: 40px 22px 60px; }
     .auth-page { padding-top: 28px; }
-    #registration-form .sd-theme-root, #login-form .sd-theme-root {
+    #registration-form .sd-theme-root, #login-form .sd-theme-root, .account-survey .sd-theme-root {
         --sjs2-layout-component-page-content-area-padding-horizontal: 16px;
     }
 }

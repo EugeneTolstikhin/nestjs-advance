@@ -11,7 +11,7 @@ export function registrationForm() {
         completeText: 'Send verification codes',
         clearInvisibleValues: 'onHidden',
         pages: [
-            { name: 'account', title: 'Account', description: 'First, choose your account and how we can reach you.', elements: [
+            { name: 'account', title: 'Account', description: 'Choose how to start. You can enable buying and selling later on the same account.', elements: [
                 { type: 'radiogroup', name: 'typeOfUser', title: 'What brings you here?', isRequired: true, colCount: 2,
                     choices: [{ value: TypeOfUser.Buyer, text: 'Buyer' }, { value: TypeOfUser.Seller, text: 'Seller' }] },
                 { type: 'radiogroup', name: 'contactMethod', title: 'How would you like to verify your account?',

@@ -1,4 +1,4 @@
-/* global Survey */
+/* global Survey, SurveyKeyboard */
 (() => {
     'use strict';
     const container = document.getElementById('registration-form');
@@ -114,6 +114,7 @@
             if (!response.ok) throw new Error('Unable to load the registration form');
             const schema = await response.json();
             const survey = new Survey.Model(schema);
+            SurveyKeyboard.attach(container, () => survey, () => busy);
             survey.applyTheme({ themeName: 'default', colorPalette: 'light', isPanelless: true });
             survey.onCompleting.add((sender, options) => {
                 options.allow = false;

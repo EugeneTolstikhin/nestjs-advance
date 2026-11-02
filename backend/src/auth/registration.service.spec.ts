@@ -44,7 +44,7 @@ describe('RegistrationService', () => {
         expect(result.registered).toBe(true);
         expect(users.insertVerified).toHaveBeenCalledTimes(1);
         const saved = users.insertVerified.mock.calls[0][0];
-        expect(saved).toMatchObject({ email: 'buyer@example.com', emailVerifiedAt: expect.any(Date), profile: buyer().buyerProfile });
+        expect(saved).toMatchObject({ email: 'buyer@example.com', emailVerifiedAt: expect.any(Date), roles: [TypeOfUser.Buyer], buyerProfile: buyer().buyerProfile });
         expect(saved.passwordHash).toMatch(/^\$2/);
         expect(saved.password).toBeUndefined();
         expect(saved.confirmPassword).toBeUndefined();
@@ -69,7 +69,7 @@ describe('RegistrationService', () => {
         const challenge = await service.start(input);
         expect(challenge.contacts.map(contact => contact.channel)).toEqual(['phone']);
         await service.verify(challenge.challengeId, 'phone', codes.get(input.phone)!);
-        expect(users.insertVerified.mock.calls[0][0]).toMatchObject({ profile: input.sellerProfile });
+        expect(users.insertVerified.mock.calls[0][0]).toMatchObject({ roles: [TypeOfUser.Seller], sellerProfile: input.sellerProfile });
         expect(users.insertVerified.mock.calls[0][0].email).toBeUndefined();
     });
 

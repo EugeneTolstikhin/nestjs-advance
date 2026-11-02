@@ -82,7 +82,7 @@ test('email-only registration saves nothing until verified, then sets a secure b
     assert.match(stored.passwordHash, /^\$2/);
     assert.equal(stored.password, undefined);
     assert.equal(stored.confirmPassword, undefined);
-    assert.deepEqual(stored.profile, { deliveryAddress: 'Test address' });
+    assert.deepEqual(stored.buyerProfile, { deliveryAddress: 'Test address' });
     assert.equal((await jwt.verifyAsync(completed.body.access_token)).sub, stored._id);
     await api.get('/shop').set('Cookie', cookies[0].split(';')[0]).expect(200).expect(/Test Buyer/);
     await verify(pending.body.challengeId, 'email', codes.get('buyer@example.com')).expect(410);
@@ -127,7 +127,7 @@ test('phone-only sellers save their business profile and can log in by phone', a
     await verify(pending.body.challengeId, 'phone', codes.get(seller.phone)).expect(200);
     const stored = await database.collection('users').findOne({ phone: seller.phone });
     assert.equal(stored.email, undefined);
-    assert.deepEqual(stored.profile, seller.sellerProfile);
+    assert.deepEqual(stored.sellerProfile, seller.sellerProfile);
     await api.post('/auth/login').send({ user: { username: seller.phone, password: seller.password } }).expect(201);
 });
 
@@ -156,7 +156,7 @@ test('email and phone OTP login require an existing verified contact and set bro
         assert.equal(JSON.stringify(challenge.body).includes(codes.get(contact)), false);
         await browser.post('/auth/login/otp/verify').send({ challengeId: challenge.body.challengeId, code: '000000' }).expect(401);
         const session = await browser.post('/auth/login/otp/verify').send({ challengeId: challenge.body.challengeId, code: codes.get(contact) }).expect(200);
-        assert.equal((await jwt.verifyAsync(session.body.access_token)).typeOfUser, 'buyer');
+        assert.deepEqual((await jwt.verifyAsync(session.body.access_token)).roles, ['buyer']);
         assert.match(session.headers['set-cookie'][0], /HttpOnly/);
         await browser.get('/shop').expect(200).expect(/Test Buyer/).expect(/logout-button/);
         await browser.post('/auth/login/otp/verify').send({ challengeId: challenge.body.challengeId, code: codes.get(contact) }).expect(410);
@@ -235,8 +235,104 @@ test('registration page, SurveyJS bundles, schema and product role guards remain
     model.dispose();
     await api.get('/products').expect(200);
     await api.post('/products').send({ name: 'Book', description: 'Test', price: 10 }).expect(401);
-    const buyerToken = await jwt.signAsync({ sub: 'test-buyer', typeOfUser: 'buyer' });
+    const buyerToken = await jwt.signAsync({ sub: 'test-buyer', roles: ['buyer'] });
     await api.post('/products').set('Authorization', `Bearer ${buyerToken}`).send({ name: 'Book', description: 'Test', price: 10 }).expect(403);
-    const sellerToken = await jwt.signAsync({ sub: 'test-seller', typeOfUser: 'seller' });
+    const sellerToken = await jwt.signAsync({ sub: 'test-seller', roles: ['seller'] });
     await api.post('/products').set('Authorization', `Bearer ${sellerToken}`).send({ name: 'Book', description: 'Test', price: 10 }).expect(201);
+});
+
+test('a buyer enables selling on the same account with a refreshed session and separate profiles', async () => {
+    const registration = await start(buyer());
+    const initial = await verify(registration.body.challengeId, 'email', codes.get('buyer@example.com')).expect(200);
+    const initialUser = await database.collection('users').findOne({ email: 'buyer@example.com' });
+    assert.deepEqual(initialUser.roles, ['buyer']);
+    assert.equal(initialUser.typeOfUser, undefined);
+    assert.equal(initialUser.profile, undefined);
+    const browser = request.agent(app.getHttpServer());
+    const cookie = initial.headers['set-cookie'][0].split(';')[0];
+    await browser.get('/account').set('Cookie', cookie).expect(200).expect(/Seller profile/).expect(/My account/);
+    const schema = await browser.get('/account/schema').set('Cookie', cookie).expect(200).expect('Cache-Control', 'no-store');
+    assert.deepEqual(schema.body.buyer.data, { deliveryAddress: 'Test address' });
+    assert.equal(schema.body.seller.form.completeText, 'Enable seller role');
+    await api.post('/products').set('Authorization', `Bearer ${initial.body.access_token}`).send({ name: 'Book', description: 'Test', price: 10 }).expect(403);
+    const upgraded = await browser.post('/account/seller').set('Cookie', cookie).send({ companyName: 'My shop', businessAddress: 'Business street', vatNumber: 'TEST' }).expect(200);
+    assert.deepEqual(upgraded.body.user.roles.sort(), ['buyer', 'seller']);
+    const claims = await jwt.verifyAsync(upgraded.body.access_token);
+    assert.equal(claims.sub, initialUser._id);
+    assert.deepEqual(claims.roles.sort(), ['buyer', 'seller']);
+    assert.equal(claims.typeOfUser, undefined);
+    assert.match(upgraded.headers['set-cookie'][0], /HttpOnly/);
+    const stored = await database.collection('users').findOne({ _id: initialUser._id });
+    assert.deepEqual(stored.buyerProfile, initialUser.buyerProfile);
+    assert.deepEqual(stored.sellerProfile, { companyName: 'My shop', businessAddress: 'Business street', vatNumber: 'TEST' });
+    assert.equal(stored.passwordHash, initialUser.passwordHash);
+    assert.equal(stored.emailVerifiedAt.getTime(), initialUser.emailVerifiedAt.getTime());
+    assert.equal(await database.collection('users').countDocuments(), 1);
+    await browser.get('/account/schema').expect(200).expect(result => assert.equal(result.body.seller.data.companyName, 'My shop'));
+    await api.post('/products').set('Authorization', `Bearer ${upgraded.body.access_token}`).send({ name: 'Book', description: 'Test', price: 10 }).expect(201);
+    await api.post('/auth/register').send({ user: buyer({ typeOfUser: 'seller', buyerProfile: undefined, sellerProfile: {} }) }).expect(409);
+});
+
+test('profile mutations use the authenticated identity, reject privilege fields, and preserve concurrent updates', async () => {
+    await api.get('/account').expect(401);
+    await api.get('/account/schema').expect(401);
+    await api.post('/account/seller').send({}).expect(401);
+    const pending = await start(buyer({ typeOfUser: 'seller', buyerProfile: undefined, sellerProfile: { companyName: 'First shop' } }));
+    const result = await verify(pending.body.challengeId, 'email', codes.get('buyer@example.com')).expect(200);
+    const authorization = `Bearer ${result.body.access_token}`;
+    for (const body of [{ roles: ['admin'] }, { userId: 'other-user' }, { email: 'new@example.com' },
+        { companyName: 'A', buyerProfile: {} }, { companyName: 123 }]) {
+        await api.post('/account/seller').set('Authorization', authorization).send(body).expect(400);
+    }
+    await api.post('/account/seller').set('Authorization', authorization).set('Origin', 'https://untrusted.example').send({}).expect(403);
+    await api.post('/account/seller').set('Authorization', authorization).type('form').send({}).expect(415);
+    const updates = await Promise.all([
+        api.post('/account/buyer').set('Authorization', authorization).send({ deliveryAddress: 'Home address' }),
+        api.post('/account/seller').set('Authorization', authorization).send({ companyName: 'Updated shop' }),
+    ]);
+    updates.forEach(update => assert.equal(update.status, 200));
+    const stored = await database.collection('users').findOne({ email: 'buyer@example.com' });
+    assert.deepEqual(stored.roles.sort(), ['buyer', 'seller']);
+    assert.deepEqual(stored.buyerProfile, { deliveryAddress: 'Home address' });
+    assert.deepEqual(stored.sellerProfile, { companyName: 'Updated shop' });
+    await api.post('/account/buyer').set('Authorization', authorization).send({ deliveryAddress: 'Home address' }).expect(200);
+    assert.equal((await database.collection('users').findOne({ _id: stored._id })).roles.length, 2);
+});
+
+test('existing single-role MongoDB users migrate without losing identity or profile data', async () => {
+    const timestamp = new Date('2020-01-01');
+    const passwordHash = await require('bcrypt').hash('Password1!', 10);
+    for (const role of ['buyer', 'seller']) await database.collection('users').insertOne({
+        _id: `legacy-${role}`, email: `${role}@example.com`, passwordHash, firstName: 'Legacy', lastName: role,
+        dob: '2000-01-01', nationality: 'Germany', emailVerifiedAt: timestamp, createdAt: timestamp, updatedAt: timestamp,
+        typeOfUser: role, profile: role === 'buyer' ? { deliveryAddress: 'Old address' } : { companyName: 'Old shop' },
+    });
+    const legacyToken = await jwt.signAsync({ sub: 'legacy-buyer', typeOfUser: 'buyer' });
+    const account = await api.get('/account/schema').set('Cookie', `nest_session=${legacyToken}`).expect(200);
+    assert.equal(account.body.buyer.data.deliveryAddress, 'Old address');
+    const buyerUser = await database.collection('users').findOne({ _id: 'legacy-buyer' });
+    const sellerUser = await database.collection('users').findOne({ _id: 'legacy-seller' });
+    assert.deepEqual(buyerUser.roles, ['buyer']);
+    assert.deepEqual(sellerUser.roles, ['seller']);
+    assert.deepEqual(buyerUser.buyerProfile, { deliveryAddress: 'Old address' });
+    assert.deepEqual(sellerUser.sellerProfile, { companyName: 'Old shop' });
+    assert.equal(sellerUser.typeOfUser, undefined);
+    assert.equal(sellerUser.profile, undefined);
+    assert.equal(buyerUser.passwordHash, passwordHash);
+    assert.equal(buyerUser.emailVerifiedAt.getTime(), timestamp.getTime());
+    assert.equal(buyerUser.createdAt.getTime(), timestamp.getTime());
+    const session = await api.post('/auth/login').send({ user: { username: 'seller@example.com', password: 'Password1!' } }).expect(201);
+    assert.deepEqual((await jwt.verifyAsync(session.body.access_token)).roles, ['seller']);
+});
+
+test('an email and phone belonging to different accounts never merge those accounts', async () => {
+    const first = await start(buyer());
+    await verify(first.body.challengeId, 'email', codes.get('buyer@example.com')).expect(200);
+    const second = await start(buyer({ email: undefined, phone: '+4917612345678', typeOfUser: 'seller', buyerProfile: undefined }));
+    await verify(second.body.challengeId, 'phone', codes.get('+4917612345678')).expect(200);
+    await api.post('/auth/register').send({ user: buyer({ phone: '+4917612345678' }) }).expect(409);
+    assert.equal(await database.collection('users').countDocuments(), 2);
+    const users = await database.collection('users').find().toArray();
+    assert.equal(users.filter(user => user.email && user.phone).length, 0);
+    assert.equal(users.filter(user => user.roles.length === 2).length, 0);
 });

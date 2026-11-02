@@ -1,6 +1,6 @@
 const { after, before, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHmac } = require('node:crypto');
 const { setTimeout: delay } = require('node:timers/promises');
 const { createClient } = require('redis');
 const { MongoClient } = require('mongodb');
@@ -139,4 +139,26 @@ test('the standalone delivery demo cannot bypass shared OTP quotas', async () =>
     assert.equal(sends, count);
     await b.api.post('/user-interaction').set('Origin', 'https://untrusted.example').send({ recipient: 'other@example.com' }).expect(403);
     await b.api.post('/user-interaction').type('form').send({ recipient: 'other@example.com' }).expect(415);
+});
+
+test('a single-role registration already pending in Redis finishes in the new account format', async () => {
+    const id = 'd'.repeat(64);
+    const expiresAt = Date.now() + 5 * 60000;
+    await a.store.put(`registration:${id}`, {
+        id, expiresAt, saving: false,
+        user: { _id: 'legacy-pending', email: 'pending@example.com', passwordHash: 'already-hashed',
+            firstName: 'Pending', lastName: 'Buyer', dob: '2000-01-01', nationality: 'Germany',
+            typeOfUser: 'buyer', profile: { deliveryAddress: 'Saved pending address' },
+            createdAt: new Date(), updatedAt: new Date() },
+        contacts: { email: { recipient: 'pending@example.com', verified: false, attempts: 0,
+            sending: false, lastSentAt: Date.now(), expiresAt, delivery: 'LOG',
+            digest: createHmac('sha256', process.env.JWT_SECRET).update(`${id}:email:123456`).digest('hex') } },
+    }, expiresAt);
+    const completed = await b.api.post('/auth/register/verify').send({ challengeId: id, channel: 'email', code: '123456' }).expect(200);
+    assert.deepEqual(completed.body.user.roles, ['buyer']);
+    const stored = await database.collection('users').findOne({ _id: 'legacy-pending' });
+    assert.deepEqual(stored.roles, ['buyer']);
+    assert.deepEqual(stored.buyerProfile, { deliveryAddress: 'Saved pending address' });
+    assert.equal(stored.typeOfUser, undefined);
+    assert.equal(stored.profile, undefined);
 });

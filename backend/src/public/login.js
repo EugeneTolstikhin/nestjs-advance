@@ -1,4 +1,4 @@
-/* global Survey, SurveyUI */
+/* global Survey, SurveyUI, SurveyKeyboard */
 (() => {
     'use strict';
     const container = document.getElementById('login-form');
@@ -7,6 +7,7 @@
     const resend = document.getElementById('login-resend');
     const back = document.getElementById('login-back');
     let schema, survey, mount, challenge, contact, busy = false, timer;
+    SurveyKeyboard.attach(container, () => survey, () => busy);
 
     function message(text, error = false) {
         status.textContent = text;

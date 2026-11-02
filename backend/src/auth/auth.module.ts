@@ -10,6 +10,8 @@ import { SameOriginGuard } from './guard/same-origin.guard';
 import { AuthPagesController } from './pages/auth-pages.controller';
 import { LoginService } from './login.service';
 import { AuthStorageModule } from './storage/auth-storage.module';
+import { AccountController } from './pages/account.controller';
+import { SessionAuthGuard } from './guard/session-auth.guard';
 
 @Module({
     imports: [AuthStorageModule, UserInteractionModule, JwtModule.registerAsync({
@@ -34,8 +36,8 @@ import { AuthStorageModule } from './storage/auth-storage.module';
             };
         },
     })],
-    controllers: [AuthController, AuthPagesController],
-    providers: [AuthService, AuthGuard, UsersRepository, RegistrationService, SameOriginGuard, LoginService],
+    controllers: [AuthController, AuthPagesController, AccountController],
+    providers: [AuthService, AuthGuard, SessionAuthGuard, UsersRepository, RegistrationService, SameOriginGuard, LoginService],
     exports: [JwtModule, AuthGuard, AuthService],
 })
 export class AuthModule {}

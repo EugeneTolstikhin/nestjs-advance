@@ -32,6 +32,17 @@ Login sets the same cookie and redirects to `/shop`. Logout clears it and return
 to the guest navbar. With the default OTP configuration, login codes appear only
 in the server terminal. See [AUTH.md](./AUTH.md) for API payloads and limits.
 
+Signed-in users can open **My account** (`/account`) to enable buying and selling
+on the same account and edit their separate profiles through SurveyJS. Contacts
+remain unique across accounts. Existing single-role users migrate automatically;
+new JWTs use a `roles` array. See [the account model](./AUTH.md#one-account-for-buying-and-selling).
+
+In the SurveyJS forms, Enter from a single-line text field validates the current
+page and activates Continue or the final action (login, verification or profile
+save). Multiline fields retain Enter for newlines, while dropdowns and radio
+groups keep their usual keyboard controls. Buttons remain usable with Tab and
+their native Enter/Space activation.
+
 Nest CLI copies templates and public assets into `dist/` during builds and watches
 them during development. `npm run build` followed by `npm run start:prod` also
 serves the UI. Handlebars `{{value}}` expressions escape user text; avoid triple

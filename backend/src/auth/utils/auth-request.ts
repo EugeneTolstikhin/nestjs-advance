@@ -3,7 +3,7 @@ import type { TypeOfUser } from '../auth.dto';
 
 export interface AuthenticatedUser {
     sub: string;
-    typeOfUser: TypeOfUser;
+    roles: TypeOfUser[];
 }
 
 export interface AuthRequest extends Request {

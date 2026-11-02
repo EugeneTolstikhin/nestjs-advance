@@ -44,17 +44,17 @@ test('middleware accepts Bearer only and passes the extracted token', () => {
 });
 
 test('guard verifies seller tokens, attaches claims and denies buyers', async () => {
-    const seller = await jwt.signAsync({ sub: '1', typeOfUser: 'seller' });
+    const seller = await jwt.signAsync({ sub: '1', roles: ['seller'] });
     const req = { headers: { authorization: `Bearer ${seller}` } };
     assert.equal(await guard.canActivate(context(req)), true);
-    assert.deepEqual(req.user, { sub: '1', typeOfUser: 'seller' });
-    const buyer = await jwt.signAsync({ sub: '2', typeOfUser: 'buyer' });
+    assert.deepEqual(req.user, { sub: '1', roles: ['seller'] });
+    const buyer = await jwt.signAsync({ sub: '2', roles: ['buyer'] });
     await assert.rejects(guard.canActivate(context({ headers: {}, accessToken: buyer })), assertStatus(403));
     await assert.rejects(guard.canActivate(context({ headers: {} })), assertStatus(401));
 });
 
 test('guard rejects forged, expired, wrongly scoped and incomplete tokens', async () => {
-    const claims = { sub: '1', typeOfUser: 'seller' };
+    const claims = { sub: '1', roles: ['seller'] };
     const tokens = [
         'invalid',
         await jwt.signAsync(claims, { expiresIn: -1 }),
@@ -66,14 +66,27 @@ test('guard rejects forged, expired, wrongly scoped and incomplete tokens', asyn
         }),
         await jwt.signAsync({ typeOfUser: 'seller' }),
         await jwt.signAsync({ sub: '1', typeOfUser: 'unknown' }),
+        await jwt.signAsync({ sub: '1', roles: [] }),
+        await jwt.signAsync({ sub: '1', roles: ['seller', 'unknown'] }),
+        await jwt.signAsync({ sub: '1', roles: 'seller', typeOfUser: 'seller' }),
     ];
-    const parts = (await jwt.signAsync({ sub: '2', typeOfUser: 'buyer' })).split('.');
+    const parts = (await jwt.signAsync({ sub: '2', roles: ['buyer'] })).split('.');
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url'));
-    parts[1] = Buffer.from(JSON.stringify({ ...payload, typeOfUser: 'seller' })).toString('base64url');
+    parts[1] = Buffer.from(JSON.stringify({ ...payload, roles: ['seller'] })).toString('base64url');
     tokens.push(parts.join('.'));
     for (const accessToken of tokens) {
         await assert.rejects(guard.canActivate(context({ headers: {}, accessToken })), assertStatus(401));
     }
+});
+
+test('guard allows any matching role and accepts unexpired legacy tokens', async () => {
+    const accessToken = await jwt.signAsync({ sub: 'both', roles: ['buyer', 'seller'] });
+    const req = { headers: {}, accessToken };
+    assert.equal(await guard.canActivate(context(req)), true);
+    assert.deepEqual(req.user, { sub: 'both', roles: ['buyer', 'seller'] });
+    const legacy = { headers: {}, accessToken: await jwt.signAsync({ sub: 'legacy', typeOfUser: 'seller' }) };
+    assert.equal(await guard.canActivate(context(legacy)), true);
+    assert.deepEqual(legacy.user.roles, ['seller']);
 });
 
 test('every product write is guarded and seller-only, while reads are public', () => {

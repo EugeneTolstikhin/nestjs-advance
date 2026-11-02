@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthRequest, extractBearerToken } from '../utils/auth-request';
 import { TypeOfUser } from '../auth.dto';
 import { ROLES_KEY } from './roles.decorator';
+import { userRoles } from '../utils/user-roles';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -14,7 +15,7 @@ export class AuthGuard implements CanActivate {
       context.getHandler(), context.getClass(),
     ]);
     const request = context.switchToHttp().getRequest<AuthRequest>();
-    const token = request.accessToken ?? extractBearerToken(request);
+    const token = this.getToken(request);
     if (!token) {
       throw new UnauthorizedException('A Bearer token is required');
     }
@@ -28,13 +29,17 @@ export class AuthGuard implements CanActivate {
     }
     if (typeof payload.sub !== 'string' || !payload.sub ||
         typeof payload.exp !== 'number' || !Number.isFinite(payload.exp) ||
-        !Object.values(TypeOfUser).includes(payload.typeOfUser as TypeOfUser)) {
+        !userRoles(payload).length) {
       throw new UnauthorizedException('Invalid token claims');
     }
-    request.user = { sub: payload.sub, typeOfUser: payload.typeOfUser as TypeOfUser };
-    if (roles?.length && !roles.includes(request.user.typeOfUser)) {
-      throw new ForbiddenException('Your user type cannot perform this operation');
+    request.user = { sub: payload.sub, roles: userRoles(payload) };
+    if (roles?.length && !roles.some(role => request.user!.roles.includes(role))) {
+      throw new ForbiddenException('Your roles do not allow this operation');
     }
     return true;
+  }
+
+  protected getToken(request: AuthRequest): string | undefined {
+    return request.accessToken ?? extractBearerToken(request);
   }
 }

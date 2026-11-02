@@ -132,6 +132,7 @@ export class RegisterDto {
     nationality: Nationality;
 
     @IsIn([TypeOfUser.Buyer, TypeOfUser.Seller])
+    // Initial role only; authenticated users enable the other role on /account.
     typeOfUser: TypeOfUser.Buyer | TypeOfUser.Seller;
 
     @IsOptional()
