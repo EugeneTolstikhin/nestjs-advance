@@ -8,7 +8,7 @@ const { getDataSourceToken } = require('@nestjs/typeorm');
 const { AppModule } = require('../dist/app.module');
 const { Products } = require('../dist/products/products.entity');
 const { ProductsService } = require('../dist/products/products.service');
-const { ProductsPageController } = require('../dist/products/products-page.controller');
+const { ProductsPageController } = require('../dist/products/pages/view-products.controller');
 const { configureViews } = require('../dist/views.config');
 
 let app;
@@ -77,11 +77,14 @@ test('guest navbar links home and shows Login/Register without an avatar', async
     assert.match(html, /href="\/auth\/login">Login<\/a>/);
     assert.match(html, /href="\/auth\/register">Register<\/a>/);
     assert.doesNotMatch(html, /class="user-avatar"/);
+    assert.doesNotMatch(html, /logout-button|logout.js/);
 });
 
 test('authenticated navbar shows an avatar and escapes the user name', async () => {
     const html = await render({ title: 'Products', products: [], user: { name: '<script>Eugene</script>' } });
     assert.match(html, /class="user-avatar"/);
+    assert.match(html, /id="logout-button">Logout<\/button>/);
+    assert.match(html, /src="\/assets\/logout.js" defer/);
     assert.match(html, /&lt;script&gt;Eugene&lt;\/script&gt;/);
     assert.doesNotMatch(html, /href="\/auth\/(login|register)"/);
     assert.doesNotMatch(html, /<script>/);

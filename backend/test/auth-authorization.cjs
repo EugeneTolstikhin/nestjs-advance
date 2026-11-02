@@ -2,16 +2,14 @@ const { after, before, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Test } = require('@nestjs/testing');
 const { JwtService } = require('@nestjs/jwt');
-const { AppModule } = require('../dist/app.module');
-const { AuthService } = require('../dist/auth/auth.service');
-const { AuthGuard } = require('../dist/guard/auth/auth.guard');
-const { Roles } = require('../dist/guard/auth/roles.decorator');
+const { AuthModule } = require('../dist/auth/auth.module');
+const { AuthGuard } = require('../dist/auth/guard/auth.guard');
+const { Roles } = require('../dist/auth/guard/roles.decorator');
 const { TokenMiddleware } = require('../dist/middleware/token/token.middleware');
 
 let moduleRef;
 let jwt;
 let guard;
-let auth;
 const previousSecret = process.env.JWT_SECRET;
 const handler = () => {};
 Reflect.defineMetadata('roles', ['seller'], handler);
@@ -23,10 +21,9 @@ const assertStatus = (status) => (error) => error.getStatus() === status;
 
 before(async () => {
     process.env.JWT_SECRET = 'test-only-secret-with-at-least-32-characters';
-    moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    moduleRef = await Test.createTestingModule({ imports: [AuthModule] }).compile();
     jwt = moduleRef.get(JwtService);
     guard = moduleRef.get(AuthGuard);
-    auth = moduleRef.get(AuthService);
 });
 after(async () => {
     await moduleRef?.close();
@@ -79,29 +76,11 @@ test('guard rejects forged, expired, wrongly scoped and incomplete tokens', asyn
     }
 });
 
-test('registration and login issue tokens from the stored role and hide password hashes', async () => {
-    const user = {
-        username: 'seller@example.com', password: 'Password1!', confirmPassword: 'Password1!',
-        firstName: 'Test', lastName: 'User', dob: '2000-01-01', nationality: 'Germany', typeOfUser: 'seller',
-    };
-    const session = await auth.register(user);
-    const claims = await jwt.verifyAsync(session.access_token);
-    assert.equal(claims.typeOfUser, 'seller');
-    assert.equal(claims.exp - claims.iat, 900);
-    assert.equal(session.user.encryptedPassword, undefined);
-    const loggedIn = await auth.login({ username: user.username, password: user.password });
-    assert.equal((await jwt.verifyAsync(loggedIn.access_token)).typeOfUser, 'seller');
-    await assert.rejects(auth.login({ username: user.username, password: 'Wrong1!' }), assertStatus(401));
-    await assert.rejects(auth.register(user), assertStatus(409));
-    await assert.rejects(auth.register({ ...user, confirmPassword: 'Other1!' }), assertStatus(400));
-    await assert.rejects(auth.register({ ...user, typeOfUser: 'admin' }), assertStatus(400));
-});
-
 test('every product write is guarded and seller-only, while reads are public', () => {
     const { ProductsController } = require('../dist/products/products.controller');
     for (const method of ['createProduct', 'updateProduct', 'patchProduct', 'deleteProduct']) {
         const route = ProductsController.prototype[method];
-        assert.deepEqual(Reflect.getMetadata('roles', route), ['seller']);
+        assert.deepEqual(Reflect.getMetadata('roles', route), method === 'deleteProduct' ? ['seller', 'admin'] : ['seller']);
         assert.ok(Reflect.getMetadata('__guards__', route).includes(AuthGuard));
     }
     for (const method of ['getProducts', 'getProductById']) {

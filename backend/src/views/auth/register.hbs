@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}} | Nest Shop</title>
+    <link rel="stylesheet" href="/assets/vendor/survey.css?v=2">
+    <link rel="stylesheet" href="/assets/styles.css?v=2">
+    <script src="/assets/vendor/survey-core.js" defer></script>
+    <script src="/assets/vendor/survey-ui.js" defer></script>
+    <script src="/assets/register.js" defer></script>
+</head>
+<body>
+    {{> navbar}}
+    <main class="auth-page">
+        <p class="eyebrow">Join Nest Shop</p>
+        <h1>{{title}}</h1>
+        <p class="auth-intro">Your account, in three simple steps. Then confirm your email or phone to get started.</p>
+        <p id="registration-status" class="form-status" role="status" aria-live="polite"></p>
+        <div id="registration-form" class="auth-card"><p>Loading registration form…</p></div>
+        <section id="verification" class="auth-card verification" aria-labelledby="verification-title" hidden>
+            <h2 id="verification-title">Confirm your contacts</h2>
+            <p>Enter the six-digit code for each contact. Codes expire after five minutes.</p>
+            <p id="otp-dev-notice" class="dev-notice" hidden>Development delivery is enabled. Read the verification codes in the server terminal.</p>
+            <div id="verification-contacts"></div>
+            <p class="auth-note">Registration expires after ten minutes. Refresh this page to start again.</p>
+        </section>
+        <noscript><p role="alert">Please enable JavaScript to use this registration form.</p></noscript>
+    </main>
+    <footer>Nest Shop · Made for the everyday.</footer>
+</body>
+</html>

@@ -1,4 +1,5 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { BrowserUserMiddleware } from './auth/browser-user.middleware';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -33,5 +34,10 @@ import { join } from 'node:path';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggingMiddleware).forRoutes('*');
+    consumer.apply(BrowserUserMiddleware).forRoutes(
+      { path: 'shop', method: RequestMethod.GET },
+      { path: 'auth/register', method: RequestMethod.GET },
+      { path: 'auth/login', method: RequestMethod.GET },
+    );
   }
 }

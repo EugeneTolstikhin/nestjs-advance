@@ -15,17 +15,22 @@ is needed. The JWT secret is loaded automatically from `backend/.env`. Run
 - `src/public/styles.css`: stylesheet, served at `/assets/styles.css`.
 - `src/views.config.ts`: Express view engine and static asset setup.
 
-The page lists products from SQLite and shows an empty state until products are
-added. It does not include login or product editing forms. JSON endpoints remain
-under `/products`; `/` redirects to `/shop`.
+The shop lists products from SQLite and shows an empty state until products are
+added. Buyer/seller registration is available at `/auth/register` through SurveyJS,
+with OTP verification before MongoDB persistence. SurveyJS login at `/auth/login`
+supports email/password, email/code and phone/code. Product editing forms
+are not included. JSON product endpoints remain under `/products`; `/` redirects
+to `/shop`.
 
 The navbar logo links to `/`. Without a `user` in the server-rendered view model,
 it displays Login and Register links to `/auth/login` and `/auth/register`. With
 `user: { name: 'Eugene' }`, it displays a generic avatar and the escaped name;
-`user.username` is the fallback when `name` is absent. Pass user data only after
-server-side authentication. The current JWT API does not set browser sessions,
-and GET login/register pages are not implemented, so the shop currently shows the
-guest state. These links are destinations for the future authentication pages.
+`user.username` is the fallback when `name` is absent. The shop and authentication
+page load their user context from the verified HttpOnly session cookie and MongoDB.
+Registration sets the cookie only after all supplied contacts pass OTP verification.
+Login sets the same cookie and redirects to `/shop`. Logout clears it and returns
+to the guest navbar. With the default OTP configuration, login codes appear only
+in the server terminal. See [AUTH.md](./AUTH.md) for API payloads and limits.
 
 Nest CLI copies templates and public assets into `dist/` during builds and watches
 them during development. `npm run build` followed by `npm run start:prod` also
@@ -88,7 +93,9 @@ Store API credentials in environment variables, not this JSON. Non-LOG phone
 configuration selects `SmsOtpHandler`; email selects `EmailOtpHandler`. Both are
 integration placeholders and currently return 501 instead of sending or claiming
 delivery. Provider-specific payloads, authentication and RCS/SMS routing must be
-implemented in those adapters. OTP storage/verification is not part of this demo.
+implemented in those adapters. The standalone OTP endpoint is a delivery demo;
+registration uses `RegistrationService` to manage hashed codes, expiry, verification
+attempts, resend limits, and completion.
 
 `JsonOtpConfigSource` reads the JSON each time a sender is requested. To load
 settings from database records later, implement `OtpConfigSource.load()` and
@@ -103,8 +110,8 @@ Git, along with its journal files. No separate database server is needed.
 
 Entity files matching `*.entity.ts` (or compiled `*.entity.js`) are discovered
 under the application directory. The product entity maps to the `products` table.
-All product CRUD operations use TypeORM repositories; users still use in-memory
-storage.
+All product CRUD operations use TypeORM repositories. Verified users are stored
+in local MongoDB; short-lived pending registration challenges remain in memory.
 
 Product reads support optional `limit` and `page` query parameters. Both must be
 positive integers. `limit` alone returns the first page; `page` requires `limit`.

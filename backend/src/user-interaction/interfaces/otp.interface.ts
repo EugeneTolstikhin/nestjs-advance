@@ -1,3 +1,3 @@
 export interface OtpInterface {
-    sendOtp(recipient?: string): Promise<{ message: string }>;
+    sendOtp(recipient?: string, code?: string): Promise<{ message: string }>;
 }

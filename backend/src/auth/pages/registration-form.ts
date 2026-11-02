@@ -1,0 +1,57 @@
+import { Nationality, TypeOfUser } from '../auth.dto';
+
+export function registrationForm() {
+    return {
+        showTitle: false,
+        showQuestionNumbers: 'off',
+        widthMode: 'responsive',
+        showProgressBar: 'top', progressBarType: 'pages',
+        progressBarShowPageTitles: true,
+        pageNextText: 'Continue', pagePrevText: 'Back',
+        completeText: 'Send verification codes',
+        clearInvisibleValues: 'onHidden',
+        pages: [
+            { name: 'account', title: 'Account', description: 'First, choose your account and how we can reach you.', elements: [
+                { type: 'radiogroup', name: 'typeOfUser', title: 'What brings you here?', isRequired: true, colCount: 2,
+                    choices: [{ value: TypeOfUser.Buyer, text: 'Buyer' }, { value: TypeOfUser.Seller, text: 'Seller' }] },
+                { type: 'radiogroup', name: 'contactMethod', title: 'How would you like to verify your account?',
+                    defaultValue: 'email', isRequired: true, colCount: 3,
+                    choices: [{ value: 'email', text: 'Email' }, { value: 'phone', text: 'Phone' }, { value: 'both', text: 'Both' }],
+                    description: 'Choose Both if you want to add and verify both contacts.' },
+                { type: 'text', name: 'email', title: 'Email', inputType: 'email', maxLength: 254,
+                    placeholder: 'you@example.com', autocomplete: 'email',
+                    isRequired: true, visibleIf: "{contactMethod} != 'phone'", validators: [{ type: 'email' }] },
+                { type: 'text', name: 'phone', title: 'Phone', inputType: 'tel', isRequired: true,
+                    visibleIf: "{contactMethod} != 'email'", placeholder: '+4917612345678', autocomplete: 'tel',
+                    description: 'Use international format, for example +4917612345678.',
+                    validators: [{ type: 'regex', regex: '^\\+[1-9]\\d{1,14}$', text: 'Use international format, including + and the country code.' }] },
+            ] },
+            { name: 'personal', title: 'Your details', description: 'A few details to make your profile yours.', elements: [
+                { type: 'text', name: 'firstName', title: 'First name', isRequired: true, maxLength: 100 },
+                { type: 'text', name: 'lastName', title: 'Last name', isRequired: true, maxLength: 100, startWithNewLine: false },
+                { type: 'text', name: 'dob', title: 'Date of birth', inputType: 'date', isRequired: true,
+                    max: new Date().toISOString().slice(0, 10) },
+                { type: 'dropdown', name: 'nationality', title: 'Nationality', isRequired: true,
+                    choices: Object.values(Nationality), startWithNewLine: false },
+                { type: 'text', name: 'pob', title: 'Place of birth (optional)', maxLength: 120 },
+                { type: 'comment', name: 'deliveryAddress', title: 'Delivery address (optional)', maxLength: 500,
+                    visibleIf: "{typeOfUser} = 'buyer'" },
+                { type: 'text', name: 'companyName', title: 'Company name (optional)', maxLength: 160,
+                    visibleIf: "{typeOfUser} = 'seller'" },
+                { type: 'comment', name: 'businessAddress', title: 'Business address (optional)', maxLength: 500,
+                    visibleIf: "{typeOfUser} = 'seller'" },
+                { type: 'text', name: 'vatNumber', title: 'VAT number (optional)', maxLength: 40,
+                    visibleIf: "{typeOfUser} = 'seller'" },
+            ] },
+            { name: 'security', title: 'Password', description: 'Set your password. Next, we’ll send your verification code.', elements: [
+                { type: 'text', name: 'password', title: 'Password', inputType: 'password', isRequired: true,
+                    minLength: 6, maxLength: 72, autocomplete: 'new-password',
+                    description: 'Use 6 or more characters, including uppercase, lowercase, a number and one of @$!%*?&.',
+                    validators: [{ type: 'regex', regex: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{6,}$', text: 'Please follow the password requirements.' }] },
+                { type: 'text', name: 'confirmPassword', title: 'Confirm password', inputType: 'password', isRequired: true,
+                    autocomplete: 'new-password',
+                    validators: [{ type: 'expression', expression: '{password} = {confirmPassword}', text: 'Passwords must match.' }] },
+            ] },
+        ],
+    };
+}

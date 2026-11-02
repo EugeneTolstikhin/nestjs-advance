@@ -5,6 +5,7 @@
     background: #f7f6f2;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; }
 a { color: inherit; }
 a:focus-visible { outline: 3px solid #526b44; outline-offset: 5px; }
@@ -18,7 +19,9 @@ a:focus-visible { outline: 3px solid #526b44; outline-offset: 5px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; font-size: 23px; font-weight: 750; text-decoration: none; letter-spacing: -1px; }
 .brand-logo { width: 34px; height: 34px; color: #526b44; flex-shrink: 0; }
 .brand-name > span { color: #526b44; }
-.nav-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
+.nav-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.logout-error { color: #9b2525; font-size: 13px; flex-basis: 100%; text-align: right; }
+#logout-button:disabled { cursor: wait; opacity: 0.65; }
 .nav-button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 18px; border: 1px solid #526b44; border-radius: 7px; font-size: 14px; font-weight: 600; text-decoration: none; }
 .nav-button-secondary { color: #3b5330; background: transparent; }
 .nav-button-secondary:hover { background: #e7eadf; }
@@ -45,9 +48,41 @@ h1 { font-family: Georgia, serif; font-size: clamp(42px, 7vw, 72px); font-weight
 .empty-state h2 { font-family: Georgia, serif; font-weight: 400; font-size: 28px; }
 .empty-state p { color: #62695f; }
 footer { max-width: 1160px; margin: auto; padding: 24px 32px; border-top: 1px solid #dddcd4; color: #62695f; font-size: 12px; }
+.auth-page { max-width: 800px; padding-top: 40px; }
+.auth-page h1 { font-size: clamp(36px, 6vw, 56px); }
+.auth-intro, .auth-note { color: #62695f; line-height: 1.6; }
+.auth-card { background: #fff; border: 1px solid #dddcd4; border-radius: 12px; overflow: hidden; }
+#registration-form .sd-theme-root,
+#registration-form.sd-theme-root,
+#login-form .sd-theme-root,
+#login-form.sd-theme-root {
+    --sjs2-color-project-brand-600: #526b44;
+    --sjs2-typography-font-family-text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --sjs2-layout-component-page-content-area-padding-horizontal: 28px;
+    --sjs2-layout-component-page-content-area-padding-top: 20px;
+    --sjs2-layout-component-page-content-area-padding-bottom: 20px;
+}
+#registration-form .sd-root-modern, #login-form .sd-root-modern { min-height: 0; }
+.verification { padding: 32px; }
+.verification h2 { font-family: Georgia, serif; font-size: 30px; font-weight: 400; }
+.form-status { min-height: 24px; line-height: 1.6; color: #3b5330; overflow-wrap: anywhere; }
+.form-error { color: #a22323; }
+.dev-notice { background: #f6edcf; color: #64501b; padding: 14px; border-radius: 6px; line-height: 1.6; }
+.otp-contact { padding: 24px 0; border-bottom: 1px solid #dddcd4; }
+.otp-contact label { display: block; font-weight: 650; margin-bottom: 12px; }
+.otp-contact input { display: block; max-width: 100%; width: 220px; padding: 12px; font-size: 24px; letter-spacing: 5px; border: 1px solid #9ca694; border-radius: 6px; }
+.otp-contact input:focus-visible { outline: 3px solid #526b44; outline-offset: 2px; }
+.otp-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+button.nav-button { cursor: pointer; font-family: inherit; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.verified-contact { color: #3b5330; font-weight: 600; }
 @media (max-width: 600px) {
     .site-header, footer { padding: 22px; }
     main { padding: 40px 22px 60px; }
+    .auth-page { padding-top: 28px; }
+    #registration-form .sd-theme-root, #login-form .sd-theme-root {
+        --sjs2-layout-component-page-content-area-padding-horizontal: 16px;
+    }
 }
 @media (max-width: 400px) {
     .site-header { padding: 18px 16px; }

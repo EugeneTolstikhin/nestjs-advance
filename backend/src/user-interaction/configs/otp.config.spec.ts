@@ -126,6 +126,13 @@ describe('OTP configuration and factory', () => {
         expect(log).not.toHaveBeenCalled();
     });
 
+    it('delivers the exact supplied registration code instead of generating a different one', async () => {
+        process.env.NODE_ENV = 'development';
+        const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+        await new LogOtpHandler().sendOtp('person@example.com', '123456');
+        expect(log).toHaveBeenCalledWith('[DEV OTP] Email (p***@example.com) code: 123456');
+    });
+
     it('resolves the abstract factory through Nest and uses LOG for the existing endpoint', async () => {
         process.env.NODE_ENV = 'development';
         vi.spyOn(Logger.prototype, 'log').mockImplementation(() => {});

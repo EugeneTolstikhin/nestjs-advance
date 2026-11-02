@@ -3,9 +3,15 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guard/auth.guard';
+import { UsersRepository } from './users.repository';
+import { RegistrationService } from './registration.service';
+import { UserInteractionModule } from '../user-interaction/user-interaction.module';
+import { SameOriginGuard } from './guard/same-origin.guard';
+import { AuthPagesController } from './pages/auth-pages.controller';
+import { LoginService } from './login.service';
 
 @Module({
-    imports: [JwtModule.registerAsync({
+    imports: [UserInteractionModule, JwtModule.registerAsync({
         useFactory: () => {
             const secret = process.env.JWT_SECRET;
             if (!secret || secret.length < 32) {
@@ -27,8 +33,8 @@ import { AuthGuard } from './guard/auth.guard';
             };
         },
     })],
-    controllers: [AuthController],
-    providers: [AuthService, AuthGuard],
+    controllers: [AuthController, AuthPagesController],
+    providers: [AuthService, AuthGuard, UsersRepository, RegistrationService, SameOriginGuard, LoginService],
     exports: [JwtModule, AuthGuard, AuthService],
 })
 export class AuthModule {}
