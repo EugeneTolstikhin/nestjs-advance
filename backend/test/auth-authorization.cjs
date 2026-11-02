@@ -5,7 +5,6 @@ const { JwtService } = require('@nestjs/jwt');
 const { AuthModule } = require('../dist/auth/auth.module');
 const { AuthGuard } = require('../dist/auth/guard/auth.guard');
 const { Roles } = require('../dist/auth/guard/roles.decorator');
-const { TokenMiddleware } = require('../dist/middleware/token/token.middleware');
 
 let moduleRef;
 let jwt;
@@ -31,15 +30,11 @@ after(async () => {
     else process.env.JWT_SECRET = previousSecret;
 });
 
-test('middleware accepts Bearer only and passes the extracted token', () => {
-    const middleware = new TokenMiddleware();
-    let called = false;
-    const req = { headers: { authorization: 'bearer token-value' } };
-    middleware.use(req, {}, () => { called = true; });
-    assert.equal(req.accessToken, 'token-value');
-    assert.equal(called, true);
+test('guard extracts Bearer tokens and rejects missing or malformed authorization headers', async () => {
+    const token = await jwt.signAsync({ sub: '1', roles: ['seller'] });
+    assert.equal(await guard.canActivate(context({ headers: { authorization: `bearer ${token}` } })), true);
     for (const authorization of [undefined, '', 'Basic token', 'Bearer', 'Bearer a b']) {
-        assert.throws(() => middleware.use({ headers: { authorization } }, {}, () => {}), assertStatus(401));
+        await assert.rejects(guard.canActivate(context({ headers: { authorization } })), assertStatus(401));
     }
 });
 
@@ -49,7 +44,7 @@ test('guard verifies seller tokens, attaches claims and denies buyers', async ()
     assert.equal(await guard.canActivate(context(req)), true);
     assert.deepEqual(req.user, { sub: '1', roles: ['seller'] });
     const buyer = await jwt.signAsync({ sub: '2', roles: ['buyer'] });
-    await assert.rejects(guard.canActivate(context({ headers: {}, accessToken: buyer })), assertStatus(403));
+    await assert.rejects(guard.canActivate(context({ headers: { authorization: `Bearer ${buyer}` } })), assertStatus(403));
     await assert.rejects(guard.canActivate(context({ headers: {} })), assertStatus(401));
 });
 
@@ -74,17 +69,18 @@ test('guard rejects forged, expired, wrongly scoped and incomplete tokens', asyn
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url'));
     parts[1] = Buffer.from(JSON.stringify({ ...payload, roles: ['seller'] })).toString('base64url');
     tokens.push(parts.join('.'));
-    for (const accessToken of tokens) {
-        await assert.rejects(guard.canActivate(context({ headers: {}, accessToken })), assertStatus(401));
+    for (const token of tokens) {
+        await assert.rejects(guard.canActivate(context({ headers: { authorization: `Bearer ${token}` } })), assertStatus(401));
     }
 });
 
 test('guard allows any matching role and accepts unexpired legacy tokens', async () => {
-    const accessToken = await jwt.signAsync({ sub: 'both', roles: ['buyer', 'seller'] });
-    const req = { headers: {}, accessToken };
+    const token = await jwt.signAsync({ sub: 'both', roles: ['buyer', 'seller'] });
+    const req = { headers: { authorization: `Bearer ${token}` } };
     assert.equal(await guard.canActivate(context(req)), true);
     assert.deepEqual(req.user, { sub: 'both', roles: ['buyer', 'seller'] });
-    const legacy = { headers: {}, accessToken: await jwt.signAsync({ sub: 'legacy', typeOfUser: 'seller' }) };
+    const legacyToken = await jwt.signAsync({ sub: 'legacy', typeOfUser: 'seller' });
+    const legacy = { headers: { authorization: `Bearer ${legacyToken}` } };
     assert.equal(await guard.canActivate(context(legacy)), true);
     assert.deepEqual(legacy.user.roles, ['seller']);
 });

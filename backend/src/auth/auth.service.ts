@@ -60,10 +60,6 @@ export class AuthService {
         }
     }
 
-    hashPassword(password: string): string {
-        return bcrypt.hashSync(password, 10);
-    }
-
     private publicUser(user: StoredUser) {
         return {
             id: user._id,

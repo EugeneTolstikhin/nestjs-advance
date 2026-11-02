@@ -40,6 +40,6 @@ export class AuthGuard implements CanActivate {
   }
 
   protected getToken(request: AuthRequest): string | undefined {
-    return request.accessToken ?? extractBearerToken(request);
+    return extractBearerToken(request);
   }
 }

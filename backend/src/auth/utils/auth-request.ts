@@ -7,7 +7,6 @@ export interface AuthenticatedUser {
 }
 
 export interface AuthRequest extends Request {
-    accessToken?: string;
     user?: AuthenticatedUser;
 }
 
