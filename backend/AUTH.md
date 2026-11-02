@@ -21,6 +21,58 @@ From `backend/`, run `npm run start:dev`, then open
 Users are stored in MongoDB's `users` collection; products remain in SQLite.
 The official MongoDB Node driver is used through `UsersRepository`.
 
+## Shared authentication storage (Redis)
+
+Redis is installed and running locally as a Homebrew service. The project's
+gitignored `.env` selects it:
+
+```dotenv
+AUTH_STORAGE=redis
+REDIS_URL=redis://127.0.0.1:6379
+REDIS_KEY_PREFIX=nestjs-advance:auth:
+```
+
+Restart the application after changing these settings. To manage Redis:
+
+```sh
+brew services start redis
+redis-cli -u redis://127.0.0.1:6379 PING
+brew services stop redis
+```
+
+`PING` returns `PONG`. Redis uses port 6379 and database 0 locally; no password is
+configured for this local instance. Keep it bound to loopback for local use.
+For a new machine, run `brew install redis` first.
+
+`AuthStorageModule` selects an `AuthStateStore` implementation. `AUTH_STORAGE=memory`
+uses a bounded, process-local store and requires no Redis. When the variable is
+absent, memory is the default. Redis mode shares login/registration challenges,
+verification attempts, resend state, password limits, and request counters across
+application instances. All instances must use the same Redis URL/database, key
+prefix and `JWT_SECRET`. Use a different prefix for unrelated environments.
+MongoDB remains the permanent user store; Redis is only for temporary auth state.
+
+State updates use optimistic compare-and-set with a Redis Lua script. Concurrent
+verification cannot reuse a consumed login code or overwrite an attempt counter.
+Every entry has a TTL; updates preserve the challenge's original deadline. Keys
+are HMAC hashes so emails, phones, IPs and challenge IDs do not appear in key
+names. Registration values contain pending profile data and bcrypt password hashes;
+OTP values contain HMAC hashes, never plaintext passwords or codes.
+
+Redis mode returns 503 on storage failure and does not fall back to memory.
+Connections and commands have bounded timeouts and offline command queuing is
+disabled ([Redis client reliability guidance](https://redis.io/docs/latest/develop/clients/nodejs/produsage/)).
+No `KEYS`, `FLUSHDB` or `FLUSHALL` commands are used by the application.
+
+Pending state survives application restarts while Redis retains it. Memory mode
+loses it on restart; switching stores or changing `JWT_SECRET` also invalidates
+pending state and starts new rate-limit keys. Redis data loss/eviction can reset
+limits: use a dedicated instance with `noeviction` and suitable persistence when
+deploying. This local setup uses the installed Redis service's persistence defaults.
+An app crash during an external delivery or final MongoDB insert can leave a
+registration marked in progress until its TTL; start a new registration (or log
+in if insertion succeeded). Redis and MongoDB do not share a transaction.
+
 ## SurveyJS registration
 
 The page uses the locally installed SurveyJS Form Library (no CDN or frontend
@@ -101,17 +153,28 @@ and `username` entirely. Fields belonging to the other role are rejected.
 
 - Pending registrations expire after 10 minutes; individual codes after 5 minutes.
 - Each contact has at most 5 verification attempts across code resends.
-- Resends require a 60-second cooldown; at most 5 sends per contact per 15 minutes.
+- Resends require a 60-second cooldown. The contact request quota is shared between
+  login and registration: at most 5 requests per contact per 15 minutes.
 - Starting registration is limited to 10 requests per IP per 15 minutes.
-- Pending registrations are held in memory (up to 1000). They retain a bcrypt
+- Registration starts are capped at 1000 per 10-minute window across the store.
+- Pending registrations are held in the selected auth store. They retain a bcrypt
   password hash, typed registration data, and HMAC hashes of OTPs. Plaintext
-  passwords and codes are not retained. Refreshing the browser or restarting the
-  server requires beginning a new registration.
+  passwords and codes are not retained. Refreshing the browser requires beginning
+  a new registration because the UI does not persist the secret challenge ID.
 - Successful registration consumes the challenge. Replaying it returns 410.
 - Delivery failures and rejected/expired codes do not create a user or session.
 
-These pending-state limits are per application process. Multiple server instances
-would need shared challenge/rate-limit storage.
+These limits are shared in Redis mode and per process in memory mode. Fixed
+windows start with the first request. Rejected/delivery-failed requests can consume
+IP quota conservatively. Cooldown checks run before contact quota checks, so a
+retry within 60 seconds does not spend another contact request. Rate-limit
+responses include `retryAfterSeconds` and `retryAt`, and the displayed message
+states how many seconds remain. Refreshing the page does not reset Redis limits.
+The standalone `/user-interaction` delivery demo also uses
+the same contact quota and cooldown, plus ten requests per IP per 15 minutes. It
+requires JSON and rejects cross-origin browser requests. It only demonstrates
+delivery and does not create a login challenge or authenticate anyone. Provider
+spending caps remain separate from request limits.
 
 ## Existing login and product permissions
 
@@ -155,8 +218,8 @@ five minutes and allow five attempts. Challenges are consumed before session
 creation to prevent concurrent reuse. Resend uses `/auth/login/otp` again after
 60 seconds and replaces older challenges for that contact. Limits per 15 minutes:
 five code requests per contact, ten per IP, ten password attempts per username,
-and twenty password attempts per IP. Login challenges (up to 1000) and limits are
-stored in memory per process; restarting the server invalidates pending codes.
+and twenty password attempts per IP. Login starts are capped at 1000 per five-minute
+window. Login challenges and limits use the selected auth store described above.
 Registration codes cannot be used for login. Refreshing the login page starts a
 new UI flow; request another code after the cooldown.
 
@@ -179,6 +242,7 @@ credentials return 401; a valid token with an unauthorized role returns 403.
 ```sh
 npm test               # Unit tests, OTP expiry/attempt/resend checks, DTO validation
 npm run test:auth      # Guard and HTTP integration tests against local MongoDB
+npm run test:auth:redis # Two app instances sharing local Redis + MongoDB
 npm run test:views     # Handlebars rendering checks
 npm run test:products  # SQLite regression checks
 ```
@@ -187,3 +251,7 @@ The HTTP auth suite uses temporary `nestjs_test_*` MongoDB databases and an
 in-memory SQLite database. It injects a test OTP sender and deletes its test
 databases afterward. No real SMS/email is sent. `TEST_MONGODB_URI` can override
 the default local URI; remote hosts are rejected by the test harness.
+The Redis suite uses a unique `nestjs-test:*` prefix, removes only its own keys,
+and tests cross-instance verification, app restarts, replay prevention, concurrent
+attempt limits, TTL expiry and Redis failure behavior. `TEST_REDIS_URL` can
+override the default local Redis URL. It never flushes your Redis database.

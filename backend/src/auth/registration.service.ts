@@ -6,6 +6,7 @@ import { RegisterDto, TypeOfUser } from './auth.dto';
 import { UsersRepository, StoredUser } from './users.repository';
 import { OtpFactory } from '../user-interaction/configs/otp.config';
 import { LogOtpHandler } from '../user-interaction/handlers/log-otp.handler';
+import { AuthStateStore } from './storage/auth-state.store';
 
 type ContactChannel = 'email' | 'phone';
 interface ContactChallenge {
@@ -28,18 +29,15 @@ interface PendingRegistration {
 
 @Injectable()
 export class RegistrationService {
-    private readonly pending = new Map<string, PendingRegistration>();
-    private readonly rates = new Map<string, { count: number; expiresAt: number }>();
     private readonly challengeLifetime = 10 * 60_000;
     private readonly codeLifetime = 5 * 60_000;
     private readonly resendCooldown = 60_000;
 
-    constructor(private readonly users: UsersRepository, private readonly otpFactory: OtpFactory) {}
+    constructor(private readonly users: UsersRepository, private readonly otpFactory: OtpFactory, private readonly state: AuthStateStore) {}
 
     async start(dto: RegisterDto, requester = 'local') {
-        this.cleanup();
-        this.rateLimit(`ip:${requester}`, 10);
-        if (this.pending.size >= 1000) throw new HttpException('Too many pending registrations', 429);
+        await this.state.limit(`registration:ip:${requester}`, 10);
+        await this.state.limit('registration:starts', 1000, this.challengeLifetime);
         if (![TypeOfUser.Buyer, TypeOfUser.Seller].includes(dto.typeOfUser)) {
             throw new BadRequestException('Only buyers and sellers can register');
         }
@@ -78,51 +76,51 @@ export class RegistrationService {
             expiresAt: now + this.challengeLifetime, saving: false,
         };
         // Passwords and confirmation values are never retained in pending state.
-        this.pending.set(pending.id, pending);
-        try {
-            for (const channel of ['email', 'phone'] as const) {
-                const recipient = user[channel];
-                if (!recipient) continue;
-                this.rateLimit(`contact:${recipient}`, 5);
-                const contact: ContactChallenge = {
-                    recipient, digest: '', verified: false, attempts: 0,
-                    expiresAt: 0, lastSentAt: 0, sending: false, delivery: channel,
-                };
-                pending.contacts[channel] = contact;
-                await this.deliver(pending, channel, contact);
-            }
-            return this.status(pending);
-        } catch (error) {
-            this.pending.delete(pending.id);
-            throw error;
+        for (const channel of ['email', 'phone'] as const) {
+            const recipient = user[channel];
+            if (!recipient) continue;
+            await this.state.limit(`otp:contact:${recipient}`, 5);
+            const contact: ContactChallenge = {
+                recipient, digest: '', verified: false, attempts: 0,
+                expiresAt: 0, lastSentAt: 0, sending: false, delivery: channel,
+            };
+            pending.contacts[channel] = contact;
+            await this.deliver(pending, channel, contact);
         }
+        await this.state.put(`registration:${pending.id}`, pending, pending.expiresAt);
+        return this.status(pending);
     }
 
     async verify(id: string, channel: ContactChannel, code: string): Promise<
         { registered: false; challenge: ReturnType<RegistrationService['status']> } |
         { registered: true; user: StoredUser }
     > {
-        const pending = this.getPending(id);
-        if (pending.saving) throw new ConflictException('Registration is already being completed');
-        const contact = pending.contacts[channel];
-        if (!contact) throw new BadRequestException('This contact is not part of the registration');
-        if (contact.sending) throw new ConflictException('A new code is being sent');
-        if (!contact.verified) {
-            if (contact.attempts >= 5) throw new HttpException('Too many attempts. Start registration again.', 429);
-            if (contact.expiresAt <= Date.now()) throw new GoneException('Code expired. Request a new code.');
-            contact.attempts++;
-            const expected = Buffer.from(contact.digest, 'hex');
-            const supplied = Buffer.from(this.digest(id, channel, code), 'hex');
-            if (!/^\d{6}$/.test(code) || !timingSafeEqual(expected, supplied)) {
-                throw new UnauthorizedException('Invalid verification code');
-            }
-            contact.verified = true;
-            contact.digest = '';
-        }
-        if (!Object.values(pending.contacts).every(value => value.verified)) {
-            return { registered: false, challenge: this.status(pending) };
-        }
-        pending.saving = true;
+        const outcome = await this.state.update<PendingRegistration, { pending: PendingRegistration; error?: number; complete?: boolean }>(
+            `registration:${id}`, pending => {
+                if (!pending) throw new GoneException('Registration expired or was completed. Start again.');
+                if (pending.saving) throw new ConflictException('Registration is already being completed');
+                const contact = pending.contacts[channel];
+                if (!contact) throw new BadRequestException('This contact is not part of the registration');
+                if (contact.sending) throw new ConflictException('A new code is being sent');
+                if (!contact.verified) {
+                    if (contact.attempts >= 5) throw new HttpException('Too many attempts. Start registration again.', 429);
+                    if (contact.expiresAt <= Date.now()) throw new GoneException('Code expired. Request a new code.');
+                    contact.attempts++;
+                    const expected = Buffer.from(contact.digest, 'hex');
+                    const supplied = Buffer.from(this.digest(id, channel, code), 'hex');
+                    if (!/^\d{6}$/.test(code) || !timingSafeEqual(expected, supplied)) {
+                        return { value: pending, expiresAt: pending.expiresAt, result: { pending, error: 401 } };
+                    }
+                    contact.verified = true;
+                    contact.digest = '';
+                }
+                const complete = Object.values(pending.contacts).every(value => value.verified);
+                pending.saving = complete;
+                return { value: pending, expiresAt: pending.expiresAt, result: { pending, complete } };
+            });
+        if (outcome.error) throw new UnauthorizedException('Invalid verification code');
+        const pending = outcome.pending;
+        if (!outcome.complete) return { registered: false, challenge: this.status(pending) };
         try {
             const now = new Date();
             if (pending.contacts.email) pending.user.emailVerifiedAt = now;
@@ -131,29 +129,52 @@ export class RegistrationService {
             pending.user.updatedAt = now;
             // No user document is written before every supplied contact is verified.
             const user = await this.users.insertVerified(pending.user);
-            this.pending.delete(id);
+            await this.state.remove(`registration:${id}`);
             return { registered: true, user };
         } catch (error) {
-            if (error instanceof ConflictException) this.pending.delete(id);
+            if (error instanceof ConflictException) await this.state.remove(`registration:${id}`);
+            else await this.state.update<PendingRegistration, void>(`registration:${id}`, current => {
+                if (current) current.saving = false;
+                return { value: current, expiresAt: current?.expiresAt ?? 0, result: undefined };
+            });
             throw error;
-        } finally {
-            pending.saving = false;
         }
     }
 
     async resend(id: string, channel: ContactChannel) {
-        const pending = this.getPending(id);
-        const contact = pending.contacts[channel];
-        if (!contact) throw new BadRequestException('This contact is not part of the registration');
-        if (pending.saving || contact.sending) throw new ConflictException('Registration request is already in progress');
-        if (contact.verified) throw new BadRequestException('Contact is already verified');
-        if (contact.attempts >= 5) throw new HttpException('Too many attempts. Start registration again.', 429);
-        if (Date.now() - contact.lastSentAt < this.resendCooldown) {
-            throw new HttpException('Wait 60 seconds before requesting another code', 429);
+        const pending = await this.state.update<PendingRegistration, PendingRegistration>(`registration:${id}`, pending => {
+            if (!pending) throw new GoneException('Registration expired or was completed. Start again.');
+            const contact = pending.contacts[channel];
+            if (!contact) throw new BadRequestException('This contact is not part of the registration');
+            if (pending.saving || contact.sending) throw new ConflictException('Registration request is already in progress');
+            if (contact.verified) throw new BadRequestException('Contact is already verified');
+            if (contact.attempts >= 5) throw new HttpException('Too many attempts. Start registration again.', 429);
+            if (Date.now() - contact.lastSentAt < this.resendCooldown) {
+                throw new HttpException('Wait 60 seconds before requesting another code', 429);
+            }
+            contact.sending = true;
+            return { value: pending, expiresAt: pending.expiresAt, result: pending };
+        });
+        const contact = pending.contacts[channel]!;
+        try {
+            await this.state.limit(`otp:contact:${contact.recipient}`, 5);
+            await this.deliver(pending, channel, contact);
+        } catch (error) {
+            await this.finishResend(id, channel, undefined);
+            throw error;
         }
-        this.rateLimit(`contact:${contact.recipient}`, 5);
-        await this.deliver(pending, channel, contact);
-        return this.status(pending);
+        return this.status(await this.finishResend(id, channel, contact));
+    }
+
+    private finishResend(id: string, channel: ContactChannel, updated?: ContactChallenge) {
+        return this.state.update<PendingRegistration, PendingRegistration>(`registration:${id}`, current => {
+            if (!current) throw new GoneException('Registration expired. Start again.');
+            const contact = current.contacts[channel]!;
+            // Preserve progress on the other contact while delivery was in progress.
+            if (updated) current.contacts[channel] = updated;
+            else contact.sending = false;
+            return { value: current, expiresAt: current.expiresAt, result: current };
+        });
     }
 
     private async deliver(pending: PendingRegistration, channel: ContactChannel, contact: ContactChallenge) {
@@ -179,15 +200,6 @@ export class RegistrationService {
         return createHmac('sha256', secret).update(`${id}:${channel}:${code}`).digest('hex');
     }
 
-    private getPending(id: string) {
-        const pending = this.pending.get(id);
-        if (!pending || pending.expiresAt <= Date.now()) {
-            this.pending.delete(id);
-            throw new GoneException('Registration expired or was completed. Start again.');
-        }
-        return pending;
-    }
-
     private status(pending: PendingRegistration) {
         return {
             challengeId: pending.id,
@@ -204,20 +216,4 @@ export class RegistrationService {
         };
     }
 
-    private rateLimit(key: string, maximum: number) {
-        const now = Date.now();
-        let limit = this.rates.get(key);
-        if (!limit || limit.expiresAt <= now) {
-            limit = { count: 0, expiresAt: now + 15 * 60_000 };
-            this.rates.set(key, limit);
-        }
-        if (limit.count >= maximum) throw new HttpException('Too many code requests. Try again later.', 429);
-        limit.count++;
-    }
-
-    private cleanup() {
-        const now = Date.now();
-        for (const [id, pending] of this.pending) if (pending.expiresAt <= now && !pending.saving) this.pending.delete(id);
-        for (const [key, limit] of this.rates) if (limit.expiresAt <= now) this.rates.delete(key);
-    }
 }

@@ -12,6 +12,7 @@ const { Products } = require('../dist/products/products.entity');
 const { OtpFactory } = require('../dist/user-interaction/configs/otp.config');
 const { UsersRepository } = require('../dist/auth/users.repository');
 const { configureViews } = require('../dist/views.config');
+const { AuthStateStore, MemoryAuthStateStore } = require('../dist/auth/storage/auth-state.store');
 
 const uri = process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017';
 assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(new URL(uri).hostname), 'Tests require a local MongoDB');
@@ -40,6 +41,7 @@ beforeEach(async () => {
     database = client.db(process.env.MONGODB_DATABASE);
     codes = new Map();
     moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+        .overrideProvider(AuthStateStore).useFactory({ factory: () => new MemoryAuthStateStore() })
         .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({
             type: 'better-sqlite3', database: ':memory:', entities: [Products], synchronize: true,
         }).initialize() })

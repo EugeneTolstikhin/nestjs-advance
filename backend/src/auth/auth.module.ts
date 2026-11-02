@@ -9,9 +9,10 @@ import { UserInteractionModule } from '../user-interaction/user-interaction.modu
 import { SameOriginGuard } from './guard/same-origin.guard';
 import { AuthPagesController } from './pages/auth-pages.controller';
 import { LoginService } from './login.service';
+import { AuthStorageModule } from './storage/auth-storage.module';
 
 @Module({
-    imports: [UserInteractionModule, JwtModule.registerAsync({
+    imports: [AuthStorageModule, UserInteractionModule, JwtModule.registerAsync({
         useFactory: () => {
             const secret = process.env.JWT_SECRET;
             if (!secret || secret.length < 32) {

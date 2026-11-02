@@ -111,7 +111,11 @@ Git, along with its journal files. No separate database server is needed.
 Entity files matching `*.entity.ts` (or compiled `*.entity.js`) are discovered
 under the application directory. The product entity maps to the `products` table.
 All product CRUD operations use TypeORM repositories. Verified users are stored
-in local MongoDB; short-lived pending registration challenges remain in memory.
+in local MongoDB; short-lived registration/login challenges and rate limits use
+Redis when `AUTH_STORAGE=redis`, or process memory when `AUTH_STORAGE=memory`.
+The local `.env` selects Redis at `redis://127.0.0.1:6379`. Start it with
+`brew services start redis`. See [AUTH.md](./AUTH.md#shared-authentication-storage-redis)
+for setup, storage choices, connection parameters and shared-state tests.
 
 Product reads support optional `limit` and `page` query parameters. Both must be
 positive integers. `limit` alone returns the first page; `page` requires `limit`.

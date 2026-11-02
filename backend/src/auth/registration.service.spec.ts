@@ -1,3 +1,4 @@
+import { MemoryAuthStateStore } from './storage/auth-state.store';
 import { ConflictException, ValidationPipe } from '@nestjs/common';
 import { RegistrationService } from './registration.service';
 import { UsersRepository } from './users.repository';
@@ -26,7 +27,7 @@ describe('RegistrationService', () => {
                 codes.set(recipient, code); return { message: 'Test delivery' };
             }),
         }) };
-        service = new RegistrationService(users as unknown as UsersRepository, factory as OtpFactory);
+        service = new RegistrationService(users as unknown as UsersRepository, factory as OtpFactory, new MemoryAuthStateStore());
     });
 
     afterEach(() => {

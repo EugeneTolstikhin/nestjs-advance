@@ -1,4 +1,4 @@
-/* global Survey */
+/* global Survey, SurveyUI */
 (() => {
     'use strict';
     const container = document.getElementById('login-form');
@@ -6,7 +6,7 @@
     const actions = document.getElementById('login-code-actions');
     const resend = document.getElementById('login-resend');
     const back = document.getElementById('login-back');
-    let schema, survey, challenge, contact, busy = false, timer;
+    let schema, survey, mount, challenge, contact, busy = false, timer;
 
     function message(text, error = false) {
         status.textContent = text;
@@ -28,7 +28,12 @@
         back.disabled = busy;
     }
     function showForm(verification = false) {
-        survey?.clear(); survey?.dispose(); container.replaceChildren();
+        // Unmount the previous renderer before disposing its model. Removing its
+        // children alone leaves a stale virtual DOM attached to the same element.
+        if (mount) SurveyUI.unmountComponentAtNode(mount);
+        survey?.clear(); survey?.dispose();
+        mount = document.createElement('div');
+        container.replaceChildren(mount);
         actions.hidden = !verification;
         survey = new Survey.Model(verification ? schema.verification : schema.credentials);
         survey.applyTheme({ themeName: 'default', colorPalette: 'light', isPanelless: true });
@@ -38,7 +43,7 @@
             const data = { ...sender.data };
             submit(data, verification);
         });
-        survey.render(container);
+        survey.render(mount);
         survey.focusFirstQuestion();
     }
     async function submit(data, verification) {

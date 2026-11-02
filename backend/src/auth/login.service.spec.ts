@@ -1,3 +1,4 @@
+import { MemoryAuthStateStore } from './storage/auth-state.store';
 import 'reflect-metadata';
 import { LoginService } from './login.service';
 import { AuthService } from './auth.service';
@@ -20,7 +21,7 @@ describe('LoginService', () => {
         auth = { createSession: vi.fn().mockResolvedValue({ access_token: 'session' }), login: vi.fn().mockResolvedValue({ access_token: 'password-session' }) };
         send = vi.fn().mockImplementation(async (_contact: string, value: string) => { code = value; });
         service = new LoginService(auth as unknown as AuthService, users as unknown as UsersRepository,
-            { create: vi.fn().mockResolvedValue({ sendOtp: send }) } as unknown as OtpFactory);
+            { create: vi.fn().mockResolvedValue({ sendOtp: send }) } as unknown as OtpFactory, new MemoryAuthStateStore());
     });
     afterEach(() => {
         vi.useRealTimers();
@@ -69,6 +70,19 @@ describe('LoginService', () => {
         await expect(service.verify(second.challengeId, code)).resolves.toEqual({ access_token: 'session' });
     });
 
+    it('does not spend the contact quota on retries during cooldown and reports the wait time', async () => {
+        vi.useFakeTimers();
+        const dto = { channel: 'email' as const, contact: 'buyer@example.com' };
+        await service.start(dto);
+        for (let i = 0; i < 4; i++) {
+            await expect(service.start(dto)).rejects.toMatchObject({ status: 429,
+                response: expect.objectContaining({ retryAfterSeconds: 60, retryAt: expect.any(String) }) });
+        }
+        vi.setSystemTime(Date.now() + 60001);
+        await expect(service.start(dto)).resolves.toHaveProperty('challengeId');
+        expect(send).toHaveBeenCalledTimes(2);
+    });
+
     it('prevents concurrent reuse and checks that the contact still belongs to the user', async () => {
         const pending = await service.start({ channel: 'phone', contact: '+4917612345678' });
         const results = await Promise.allSettled([service.verify(pending.challengeId, code), service.verify(pending.challengeId, code)]);
@@ -82,7 +96,7 @@ describe('LoginService', () => {
     it('limits password attempts and validates channel-specific contact formats', async () => {
         const dto = { username: 'buyer@example.com', password: 'wrong' };
         for (let i = 0; i < 10; i++) await service.password(dto);
-        expect(() => service.password(dto)).toThrow('Too many login requests');
+        await expect(service.password(dto)).rejects.toMatchObject({ status: 429 });
         await expect(service.start({ channel: 'phone', contact: 'buyer@example.com' })).rejects.toMatchObject({ status: 400 });
         await expect(service.start({ channel: 'email', contact: '+4917612345678' })).rejects.toMatchObject({ status: 400 });
     });
