@@ -19,6 +19,9 @@ export async function configureViews(app: NestExpressApplication): Promise<void>
         ['/assets/vendor/survey.css', join(__dirname, '..', 'node_modules/survey-core/survey-core.min.css')],
     ]);
     app.use((request: Request, response: Response, next: NextFunction) => {
+        if (request.path === '/favicon.ico' && ['GET', 'HEAD'].includes(request.method)) {
+            return response.redirect('/assets/favicon.svg');
+        }
         const file = vendorAssets.get(request.path);
         if (!file || !['GET', 'HEAD'].includes(request.method)) return next();
         response.sendFile(file);
