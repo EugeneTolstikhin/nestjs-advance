@@ -51,7 +51,7 @@ beforeEach(async () => {
             codes.set(recipient, code); return { message: 'Test delivery' };
         } }) }).compile();
     app = moduleRef.createNestApplication({ logger: false });
-    configureViews(app);
+    await configureViews(app);
     await app.init();
     api = request(app.getHttpServer());
     jwt = moduleRef.get(JwtService);

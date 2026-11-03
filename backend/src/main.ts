@@ -12,7 +12,7 @@ async function bootstrap() {
     loadEnvFile(envPath);
   }
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  configureViews(app);
+  await configureViews(app);
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap().catch((error: unknown) => {

@@ -52,7 +52,7 @@ async function boot() {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(AuthStateStore).useFactory({ factory: () => new MemoryAuthStateStore() })
         .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({ type: 'better-sqlite3', database: join(directory, 'test.sqlite'), entities: [Products, ProductMedia], synchronize: true }).initialize() }).compile();
-    app = moduleRef.createNestApplication({ logger: false }); configureViews(app); await app.init();
+    app = moduleRef.createNestApplication({ logger: false }); await configureViews(app); await app.init();
     db = moduleRef.get(DataSource); service = moduleRef.get(ProductMediaService); api = request(app.getHttpServer());
     const jwt = moduleRef.get(JwtService);
     token = await jwt.signAsync({ sub: 'seller-a', roles: ['seller'] });

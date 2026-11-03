@@ -26,7 +26,7 @@ before(async () => {
             type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
         }).initialize() }).compile();
     app = moduleRef.createNestApplication({ logger: false });
-    configureViews(app);
+    await configureViews(app);
     await app.init();
     page = moduleRef.get(ProductsPageController);
     service = moduleRef.get(ProductsService);

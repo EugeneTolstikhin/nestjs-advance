@@ -1,11 +1,12 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
 import hbs from 'hbs';
 import type { NextFunction, Request, Response } from 'express';
 
-export function configureViews(app: NestExpressApplication): void {
-    hbs.registerPartial('navbar', readFileSync(join(__dirname, 'views', 'includes', 'navbar.hbs'), 'utf8'));
+export async function configureViews(app: NestExpressApplication): Promise<void> {
+    await new Promise<void>(resolve => {
+        hbs.registerPartials(join(__dirname, 'views', 'includes'), resolve);
+    });
     app.setBaseViewsDir(join(__dirname, 'views'));
     app.setViewEngine('hbs');
     app.useStaticAssets(join(__dirname, 'public'), { prefix: '/assets/' });

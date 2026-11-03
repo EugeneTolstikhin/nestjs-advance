@@ -41,7 +41,7 @@ async function instance() {
         } }) }).compile();
     const app = moduleRef.createNestApplication({ logger: false });
     apps.push(app);
-    configureViews(app); await app.init();
+    await configureViews(app); await app.init();
     return { app, api: request(app.getHttpServer()), store: moduleRef.get(AuthStateStore) };
 }
 
