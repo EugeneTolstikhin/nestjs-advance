@@ -24,7 +24,8 @@
     "test:auth:unit": "npm run build && node --test test/auth-authorization.cjs",
     "test:products": "npm run build && node --test test/products-persistence.cjs",
     "test:views": "npm run build && node --test test/views.cjs",
-    "test:auth:redis": "npm run build && node --test test/auth-redis.e2e.cjs"
+    "test:auth:redis": "npm run build && node --test test/auth-redis.e2e.cjs",
+    "test:media": "npm run build && node --test test/product-media.e2e.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -32,6 +33,8 @@
     "@nestjs/jwt": "^12.0.3",
     "@nestjs/platform-express": "^12.0.1",
     "@nestjs/typeorm": "^12.0.2",
+    "@tus/file-store": "^2.1.2",
+    "@tus/server": "^2.4.7",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.11.1",
     "class-transformer": "^0.5.1",
@@ -41,8 +44,10 @@
     "redis": "^6.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.5",
     "survey-core": "^3.2.3",
     "survey-js-ui": "^3.2.3",
+    "tus-js-client": "^4.3.1",
     "typeorm": "^1.1.2"
   },
   "devDependencies": {

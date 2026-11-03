@@ -21,7 +21,7 @@ export class ProductsPageController {
                 id: product.id,
                 name: product.name,
                 description: product.description,
-                imageUrl: product.imageUrl,
+                media: product.media?.map((item, index) => ({ ...item, label: `${item.isVideo ? 'Video' : 'Photo'} ${index + 1}` })),
                 price: product.price.toFixed(2),
             })),
         };

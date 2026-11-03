@@ -8,6 +8,9 @@ import {
 
 @Entity({ name: 'products' })
 export class Products {
+    // Response-only ordered media; metadata is persisted in product_media.
+    media?: { id: string; kind: string; isVideo: boolean; name: string; size: number; position: number; url: string; poster?: string; width: number; height: number; duration: number }[];
+
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
@@ -30,9 +33,6 @@ export class Products {
         nullable: false
     })
     price: number;
-
-    @Column({ type: 'text', nullable: true })
-    imageUrl?: string | null;
 
     @CreateDateColumn({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;

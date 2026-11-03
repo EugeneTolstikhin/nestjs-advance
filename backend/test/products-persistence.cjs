@@ -1,3 +1,5 @@
+const { ProductMedia } = require('../dist/products/media/product-media.entity');
+const { ProductMediaService } = require('../dist/products/media/product-media.service');
 const { afterEach, beforeEach, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { DataSource, QueryFailedError } = require('typeorm');
@@ -10,10 +12,10 @@ let service;
 
 beforeEach(async () => {
     db = await new DataSource({
-        type: 'better-sqlite3', database: ':memory:', entities: [Products], synchronize: true,
+        type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
     }).initialize();
     repository = db.getRepository(Products);
-    service = new ProductsService(repository);
+    service = new ProductsService(repository, new ProductMediaService(db));
 });
 
 afterEach(async () => {
@@ -51,7 +53,7 @@ test('other database failures are not reported as duplicate names', async () => 
 test('reads and deletes use database rows across service instances', async () => {
     const first = await service.createProduct({ name: 'Book', description: 'First', price: 10 });
     const second = await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 });
-    const anotherService = new ProductsService(repository);
+    const anotherService = new ProductsService(repository, new ProductMediaService(db));
     assert.equal((await anotherService.getProducts()).length, 2);
     assert.equal((await anotherService.getProductById({ id: first.id })).name, 'Book');
     const remaining = await anotherService.deleteProduct({ id: first.id });
@@ -62,12 +64,12 @@ test('reads and deletes use database rows across service instances', async () =>
 
 test('PUT replaces editable fields and PATCH preserves omitted fields and accepts zero', async () => {
     const first = await service.createProduct({
-        name: 'Book', description: 'Original', price: 10, imageUrl: 'https://example.com/book.png',
+        name: 'Book', description: 'Original', price: 10,
     });
     const patched = await service.patchProduct(first.id, { price: 0 });
     assert.equal(patched.id, first.id);
     assert.equal(patched.name, 'Book');
-    assert.equal(patched.imageUrl, first.imageUrl);
+    assert.deepEqual(patched.media, []);
     assert.equal((await repository.findOneByOrFail({ id: first.id })).price, 0);
     const replaced = await service.updateProduct(first.id, {
         name: 'Updated book', description: 'Replacement', price: 15,
@@ -75,7 +77,7 @@ test('PUT replaces editable fields and PATCH preserves omitted fields and accept
     const stored = await repository.findOneByOrFail({ id: first.id });
     assert.equal(stored.name, replaced.name);
     assert.equal(stored.description, 'Replacement');
-    assert.equal(stored.imageUrl, null);
+    assert.equal(repository.metadata.columns.some(column => column.propertyName === 'imageUrl'), false);
     assert.equal(stored.createdAt.getTime(), first.createdAt.getTime());
     assert.ok(stored.updatedAt instanceof Date);
 });

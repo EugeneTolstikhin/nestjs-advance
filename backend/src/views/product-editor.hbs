@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{title}} | Nest Shop</title>
     <link rel="stylesheet" href="/assets/vendor/survey.css?v=2">
-    <link rel="stylesheet" href="/assets/styles.css?v=5">
+    <link rel="stylesheet" href="/assets/styles.css?v=6">
     <script src="/assets/vendor/survey-core.js" defer></script>
     <script src="/assets/vendor/survey-ui.js" defer></script>
     <script src="/assets/survey-keyboard.js" defer></script>
-    <script src="/assets/product-editor.js" defer></script>
+    <script src="/assets/vendor/tus.js" defer></script>
+    <script src="/assets/media-uploader.js" defer></script>
+    <script src="/assets/product-editor.js?v=3" defer></script>
 </head>
 <body>
     {{> navbar}}
@@ -17,8 +19,9 @@
         <a href="/shop">← Back to products</a>
         <p class="eyebrow">Seller workspace</p>
         <h1>{{title}}</h1>
-        <p class="auth-intro">Give your product a clear name, a description and a price. You can add an image link too.</p>
+        <p class="auth-intro">Add photos and videos, arrange their order, then save your product details. Products without uploaded media show a placeholder.</p>
         <p id="product-status" class="form-status" role="status" aria-live="polite"></p>
+        <section id="product-media" class="media-uploader" aria-label="Product photos and videos"></section>
         <div id="product-form" class="auth-card product-editor"><p>Loading product form…</p></div>
         <p class="auth-note"><a href="/shop">Cancel and return to products</a></p>
         <noscript><p role="alert">Please enable JavaScript to manage products.</p></noscript>

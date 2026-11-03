@@ -45,12 +45,16 @@ their native Enter/Space activation.
 
 ### Managing products
 
+Product editors now include bulk local photo/video uploads with tus resume,
+ordering controls, and mixed-media buyer carousels. See [MEDIA.md](./MEDIA.md) for
+formats, limits, FFmpeg setup, storage configuration and the upload API.
+
 Sign in with the seller role enabled (use **My account** to enable selling).
 On `/shop`, choose **Add product** to open `/shop/new`, or **Edit** on a product
 to open `/shop/:id/edit`. SurveyJS collects a unique name, description, a
-non-negative price with up to two decimal places, and an optional direct HTTP(S)
-image URL. Save uses the existing `POST /products` or `PUT /products/:id` API;
-clearing the image field on edit removes the image. Enter in a single-line field
+non-negative price with up to two decimal places. Photos and videos are managed
+through the upload area. Save uses the existing `POST /products` or `PUT /products/:id` API;
+removing uploaded items and saving removes them from the gallery. Enter in a single-line field
 submits through normal validation. Cancel returns to the catalog.
 
 **Delete** opens a confirmation dialog and calls `DELETE /products/:id` only
@@ -153,7 +157,7 @@ for setup, storage choices, connection parameters and shared-state tests.
 Product reads support optional `limit` and `page` query parameters. Both must be
 positive integers. `limit` alone returns the first page; `page` requires `limit`.
 Without either parameter, all products are returned, ordered by creation time
-and ID. PUT replaces editable fields (an omitted image URL becomes null), while
+and ID. PUT replaces editable product details, while
 PATCH preserves omitted fields. DELETE returns the remaining products. Duplicate
 names return 409, and reading, editing or deleting a missing product returns 404.
 

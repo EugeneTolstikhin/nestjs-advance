@@ -1,3 +1,4 @@
+import type { AuthRequest } from '../auth/utils/auth-request';
 import 'reflect-metadata';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ProductsController } from './products.controller';
@@ -22,7 +23,8 @@ describe('ProductsController', () => {
         await expect(validation.transform({ name: 'Book', description: 'NestJS', price: 10 },
             { type: 'body', metatype: CreateProductDto })).resolves.toMatchObject({ price: 10 });
         for (const body of [{}, { name: 'Book', description: 'NestJS', price: '10' },
-            { name: 'Book', description: 'NestJS', price: 10, unexpected: true }]) {
+            { name: 'Book', description: 'NestJS', price: 10, unexpected: true },
+            { name: 'Book', description: 'NestJS', price: 10, mediaIds: null }]) {
             await expect(validation.transform(body, { type: 'body', metatype: CreateProductDto }))
                 .rejects.toBeInstanceOf(BadRequestException);
         }
@@ -42,16 +44,26 @@ describe('ProductsController', () => {
         }
     });
 
+    it('rejects the removed image URL field on product writes', async () => {
+        for (const metatype of [CreateProductDto, UpdateProductDto, PatchProductDto]) {
+            await expect(validation.transform({ name: 'Book', description: 'Test', price: 10,
+                imageUrl: 'https://example.com/book.jpg' }, { type: 'body', metatype }))
+                .rejects.toMatchObject({ response: {
+                    message: expect.arrayContaining(['property imageUrl should not exist']),
+                } });
+        }
+    });
+
     it('passes URL IDs separately from validated update bodies and keeps pagination optional', async () => {
         const service = { updateProduct: vi.fn(), patchProduct: vi.fn(), getProducts: vi.fn() };
         const controller = new ProductsController(service as unknown as ProductsService);
         const update = await validation.transform({ name: 'Book', description: 'NestJS', price: 10 },
             { type: 'body', metatype: UpdateProductDto });
-        controller.updateProduct({ id }, update);
-        controller.patchProduct({ id }, { price: 0 });
+        controller.updateProduct({ id }, update, { user: { sub: 'seller', roles: [] } } as unknown as AuthRequest);
+        controller.patchProduct({ id }, { price: 0 }, { user: { sub: 'seller', roles: [] } } as unknown as AuthRequest);
         controller.getProducts();
-        expect(service.updateProduct).toHaveBeenCalledWith(id, update);
-        expect(service.patchProduct).toHaveBeenCalledWith(id, { price: 0 });
+        expect(service.updateProduct).toHaveBeenCalledWith(id, update, 'seller');
+        expect(service.patchProduct).toHaveBeenCalledWith(id, { price: 0 }, 'seller');
         expect(service.getProducts).toHaveBeenCalledWith(undefined, undefined);
     });
 });

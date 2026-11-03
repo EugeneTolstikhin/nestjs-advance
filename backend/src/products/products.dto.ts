@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, IsUUID, MaxLength, Min } from "class-validator";
+import { ValidateIf, ArrayMaxSize, ArrayUnique, IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
 
 export class Product {
     @IsUUID('4', { message: 'ID must be a valid UUID v4' })
@@ -19,12 +19,16 @@ export class Product {
     @Min(0)
     price: number;
 
-    @IsUrl()
-    @IsOptional()
-    imageUrl?: string;
 }
 
 export class CreateProductDto {
+    @ValidateIf((_object, value) => value !== undefined)
+    @IsArray()
+    @ArrayMaxSize(100)
+    @ArrayUnique()
+    @IsUUID('4', { each: true })
+    mediaIds?: string[];
+
     @IsString()
     @IsNotEmpty()
     @MaxLength(100)
@@ -40,12 +44,16 @@ export class CreateProductDto {
     @Min(0)
     price: number;
 
-    @IsUrl()
-    @IsOptional()
-    imageUrl?: string;
 }
 
 export class UpdateProductDto {
+    @ValidateIf((_object, value) => value !== undefined)
+    @IsArray()
+    @ArrayMaxSize(100)
+    @ArrayUnique()
+    @IsUUID('4', { each: true })
+    mediaIds?: string[];
+
     @IsString()
     @IsNotEmpty()
     @MaxLength(100)
@@ -61,12 +69,16 @@ export class UpdateProductDto {
     @Min(0)
     price: number;
 
-    @IsUrl()
-    @IsOptional()
-    imageUrl?: string;
 }
 
 export class PatchProductDto {
+    @ValidateIf((_object, value) => value !== undefined)
+    @IsArray()
+    @ArrayMaxSize(100)
+    @ArrayUnique()
+    @IsUUID('4', { each: true })
+    mediaIds?: string[];
+
     @IsString()
     @IsOptional()
     @MaxLength(100)
@@ -82,9 +94,6 @@ export class PatchProductDto {
     @Min(0)
     price?: number;
 
-    @IsUrl()
-    @IsOptional()
-    imageUrl?: string;
 }
 
 export class DeleteProductDto {

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{title}} | Nest Shop</title>
     <link rel="stylesheet" href="/assets/styles.css">
+    <script src="/assets/product-carousel.js" defer></script>
     {{#if canDeleteProducts}}<script src="/assets/products.js" defer></script>{{/if}}
 </head>
 <body>
@@ -19,8 +20,33 @@
         <section class="products" aria-label="Available products">
             {{#each products}}
             <article class="product">
-                {{#if imageUrl}}
-                <img class="product-image" src="{{imageUrl}}" alt="{{name}}" loading="lazy" referrerpolicy="no-referrer">
+                {{#if media}}
+                <div class="product-carousel" data-carousel tabindex="0" role="group" aria-label="{{name}} photos and videos">
+                    <div class="carousel-slides">
+                        {{#each media}}
+                        <div class="carousel-slide" {{#unless @first}}hidden{{/unless}}>
+                            {{#if isVideo}}
+                            <video class="product-image" controls playsinline preload="none" poster="{{poster}}" aria-label="{{../name}} — {{label}}"><source src="{{url}}">Your browser cannot play this video.</video>
+                            {{else}}
+                            <img class="product-image" src="{{url}}" alt="{{../name}} — {{label}}" loading="lazy">
+                            {{/if}}
+                        </div>
+                        {{/each}}
+                    </div>
+                    <div class="carousel-navigation" hidden>
+                        <button class="nav-button nav-button-secondary" type="button" data-carousel-prev aria-label="Previous photo or video">←</button>
+                        <span data-carousel-count role="status" aria-live="polite"></span>
+                        <button class="nav-button nav-button-secondary" type="button" data-carousel-next aria-label="Next photo or video">→</button>
+                    </div>
+                    <div class="carousel-thumbnails" aria-label="Choose a photo or video" hidden>
+                        {{#each media}}
+                        <button type="button" data-carousel-thumb aria-label="Show {{label}}">
+                            <img src="{{#if isVideo}}{{poster}}{{else}}{{url}}{{/if}}" alt="" loading="lazy">
+                            {{#if isVideo}}<span>Video</span>{{/if}}
+                        </button>
+                        {{/each}}
+                    </div>
+                </div>
                 {{else}}
                 <div class="product-placeholder" aria-hidden="true">N.</div>
                 {{/if}}

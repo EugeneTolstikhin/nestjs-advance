@@ -11,6 +11,7 @@ export function configureViews(app: NestExpressApplication): void {
     app.useStaticAssets(join(__dirname, 'public'), { prefix: '/assets/' });
     // Serve only the pinned browser bundles, not the entire node_modules directory.
     const vendorAssets = new Map([
+        ['/assets/vendor/tus.js', join(__dirname, '..', 'node_modules/tus-js-client/dist/tus.min.js')],
         ['/assets/vendor/survey-core.js', join(__dirname, '..', 'node_modules/survey-core/survey.core.min.js')],
         ['/assets/vendor/survey-ui.js', join(__dirname, '..', 'node_modules/survey-js-ui/survey-js-ui.min.js')],
         // The fontless file is an @import alias; its relative URL breaks at this public path.

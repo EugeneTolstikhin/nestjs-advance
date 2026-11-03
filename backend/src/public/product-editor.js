@@ -1,4 +1,4 @@
-/* global Survey, SurveyKeyboard */
+/* global Survey, SurveyKeyboard, ProductMediaUploader */
 (() => {
     const id = document.getElementById('product-page').dataset.productId;
     const container = document.getElementById('product-form');
@@ -20,25 +20,28 @@
         try {
             const schema = await result(await fetch('/shop/product-schema', { credentials: 'same-origin' }));
             const product = id ? await result(await fetch(`/products/${encodeURIComponent(id)}`, { credentials: 'same-origin' })) : {};
+            const mediaRoot = document.getElementById('product-media');
+            const uploader = mediaRoot ? await ProductMediaUploader.create(mediaRoot, product.media ?? []) : null;
             const survey = new Survey.Model(schema);
             survey.completeText = id ? 'Save changes' : 'Create product';
             survey.applyTheme({ themeName: 'default', colorPalette: 'light', isPanelless: true });
-            if (id) survey.data = { name: product.name, description: product.description, price: product.price, imageUrl: product.imageUrl ?? '' };
+            if (id) survey.data = { name: product.name, description: product.description, price: product.price };
             SurveyKeyboard.attach(container, () => survey, () => busy);
             survey.onCompleting.add((sender, options) => {
                 options.allow = false;
                 if (busy) return;
                 const data = { name: sender.data.name.trim(), description: sender.data.description.trim(), price: Number(sender.data.price) };
-                if (sender.data.imageUrl?.trim()) data.imageUrl = sender.data.imageUrl.trim();
-                busy = true; sender.readOnly = true; message(id ? 'Saving changes…' : 'Creating product…');
+                try { if (uploader) data.mediaIds = uploader.ids(); } catch (error) { message(error.message, true); return; }
+                busy = true; uploader?.setLocked(true); sender.readOnly = true; message(id ? 'Saving changes…' : 'Creating product…');
                 fetch(id ? `/products/${encodeURIComponent(id)}` : '/products', {
                     method: id ? 'PUT' : 'POST', credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
-                }).then(result).then(() => {
+                }).then(result).then(async () => {
+                    await uploader?.markSaved();
                     message('Product saved. Returning to the catalog…');
                     window.location.assign('/shop');
                 }).catch(error => { message(error.message || 'Unable to save. Please try again.', true); })
-                    .finally(() => { busy = false; sender.readOnly = false; });
+                    .finally(() => { busy = false; uploader?.setLocked(false); sender.readOnly = false; });
             });
             container.replaceChildren(); survey.render(container); survey.focusFirstQuestion();
         } catch (error) { container.replaceChildren(); message(error.message || 'Unable to load the product form. Please refresh.', true); }

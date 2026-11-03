@@ -26,7 +26,7 @@ describe('Product browser UI', () => {
         globals.Survey.Model = class extends Original { constructor(schema: object) { super(schema); models.push(this); } };
         fetchMock = vi.fn().mockImplementation(async (path, options) => {
             if (path === '/shop/product-schema') return response(productForm());
-            if (!options?.method) return response({ id, name: 'Book', description: 'Existing description', price: 10, imageUrl: 'https://example.com/book.jpg' });
+            if (!options?.method) return response({ id, name: 'Book', description: 'Existing description', price: 10 });
             return response({ id });
         });
         window.fetch = fetchMock;
@@ -38,8 +38,8 @@ describe('Product browser UI', () => {
         models.forEach(model => model.dispose()); vi.restoreAllMocks();
         window.happyDOM.abort(); window.close();
     });
-    async function editor(productId = '') {
-        window.document.body.innerHTML = `<main id="product-page" data-product-id="${productId}"><p id="product-status"></p><div id="product-form"></div></main>`;
+    async function editor(productId = '', media = false) {
+        window.document.body.innerHTML = `<main id="product-page" data-product-id="${productId}"><p id="product-status"></p>${media ? '<section id="product-media"></section>' : ''}<div id="product-form"></div></main>`;
         window.eval(editorScript);
         await vi.waitFor(() => expect(window.document.querySelector('input[type="number"]')).not.toBeNull());
         return models[0];
@@ -51,9 +51,10 @@ describe('Product browser UI', () => {
         window.document.querySelector('button[data-delete-product]')!.click();
     }
 
-    it('creates a product with numeric price and no empty optional image URL', async () => {
+    it('creates a product with numeric price and only editable product fields', async () => {
         const model = await editor();
-        model.data = { name: '  New book  ', description: 'New description', price: 0, imageUrl: '' };
+        expect(model.getQuestionByName('imageUrl')).toBeNull();
+        model.data = { name: '  New book  ', description: 'New description', price: 0 };
         await vi.waitFor(() => expect(window.document.querySelector('input[type="text"]')!.value).toBe('  New book  '));
         model.tryComplete(); model.tryComplete();
         await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
@@ -66,7 +67,7 @@ describe('Product browser UI', () => {
     it('loads product values and saves edits through PUT without a body ID', async () => {
         const model = await editor(id);
         expect(model.data.name).toBe('Book');
-        model.setValue('name', 'Updated book'); model.setValue('imageUrl', '');
+        model.setValue('name', 'Updated book');
         await vi.waitFor(() => expect(window.document.querySelector('input[type="text"]')!.value).toBe('Updated book'));
         model.tryComplete();
         await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
@@ -74,11 +75,10 @@ describe('Product browser UI', () => {
         expect(call![0]).toBe(`/products/${id}`);
         expect(JSON.parse(call![1].body)).toEqual({ name: 'Updated book', description: 'Existing description', price: 10 });
     });
-    it('validates prices, required text and image URLs before making a write request', async () => {
+    it('validates prices, required text before making a write request', async () => {
         const model = await editor();
         for (const data of [{ name: '', description: 'Test', price: 1 }, { name: 'Book', description: ' ', price: 1 },
-            { name: 'Book', description: 'Test', price: -1 }, { name: 'Book', description: 'Test', price: 1.234 },
-            { name: 'Book', description: 'Test', price: 1, imageUrl: 'javascript:alert(1)' }]) {
+            { name: 'Book', description: 'Test', price: -1 }, { name: 'Book', description: 'Test', price: 1.234 }]) {
             model.data = data; model.tryComplete();
         }
         expect(fetchMock.mock.calls.filter(([, options]) => options?.method)).toHaveLength(0);
@@ -99,6 +99,21 @@ describe('Product browser UI', () => {
         fetchMock.mockResolvedValueOnce(response({ message: 'Unauthorized' }, 401)); model.tryComplete();
         await vi.waitFor(() => expect(window.document.getElementById('product-status')!.textContent).toContain('session has expired'));
         expect(model.readOnly).toBe(false); expect(model.data.description).toBe('Existing description');
+    });
+    it('blocks saving pending uploads, then submits ordered media IDs with the product', async () => {
+        const uploader = { ids: vi.fn().mockImplementation(() => { throw new Error('Finish pending uploads'); }),
+            setLocked: vi.fn(), markSaved: vi.fn().mockResolvedValue(undefined) };
+        (window as any).ProductMediaUploader = { create: vi.fn().mockResolvedValue(uploader) };
+        const model = await editor(id, true);
+        model.tryComplete();
+        expect(window.document.getElementById('product-status')!.textContent).toContain('pending uploads');
+        expect(fetchMock.mock.calls.some(([, options]) => options?.method)).toBe(false);
+        uploader.ids.mockReturnValue([id]); model.tryComplete();
+        await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
+        const call = fetchMock.mock.calls.find(([, options]) => options?.method === 'PUT');
+        expect(JSON.parse(call![1].body).mediaIds).toEqual([id]);
+        expect(uploader.markSaved).toHaveBeenCalledTimes(1);
+        expect(uploader.setLocked).toHaveBeenCalledWith(true);
     });
     it('cancels deletion without sending a request and returns focus to the delete control', async () => {
         deletion();

@@ -1,3 +1,5 @@
+const { ProductMedia } = require('../dist/products/media/product-media.entity');
+const { ProductMediaService } = require('../dist/products/media/product-media.service');
 const { after, afterEach, before, beforeEach, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
@@ -43,7 +45,7 @@ beforeEach(async () => {
     moduleRef = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(AuthStateStore).useFactory({ factory: () => new MemoryAuthStateStore() })
         .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({
-            type: 'better-sqlite3', database: ':memory:', entities: [Products], synchronize: true,
+            type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
         }).initialize() })
         .overrideProvider(OtpFactory).useValue({ create: async () => ({ sendOtp: async (recipient, code) => {
             codes.set(recipient, code); return { message: 'Test delivery' };
@@ -345,9 +347,9 @@ test('seller browser sessions create, edit and delete products through the exist
     await browser.get('/shop').set('Cookie', cookie).expect(200).expect(/href="\/shop\/new"/);
     await browser.get('/shop/new').set('Cookie', cookie).expect(200).expect(/product-editor.js/).expect(/survey-keyboard.js/);
     await browser.get('/shop/product-schema').set('Cookie', cookie).expect(200).expect(result => {
-        assert.deepEqual(result.body.elements.map(field => field.name), ['name', 'description', 'price', 'imageUrl']);
+        assert.deepEqual(result.body.elements.map(field => field.name), ['name', 'description', 'price']);
     });
-    const body = { name: 'New book', description: 'Description', price: 12.5, imageUrl: 'https://example.com/book.jpg' };
+    const body = { name: 'New book', description: 'Description', price: 12.5 };
     const created = await browser.post('/products').set('Cookie', cookie).send(body).expect(201);
     const id = created.body.id;
     await browser.get('/shop').set('Cookie', cookie).expect(200).expect(new RegExp(`/shop/${id}/edit`)).expect(/data-delete-product/);
@@ -355,7 +357,7 @@ test('seller browser sessions create, edit and delete products through the exist
     await browser.get('/shop/not-a-uuid/edit').set('Cookie', cookie).expect(400);
     await browser.post('/products').set('Cookie', cookie).send(body).expect(409);
     await browser.put(`/products/${id}`).set('Cookie', cookie).send({ name: 'Updated book', description: 'Edited', price: 0 }).expect(200).expect(result => {
-        assert.equal(result.body.imageUrl, null);
+        assert.equal('imageUrl' in result.body, false);
         assert.equal(result.body.price, 0);
     });
     await browser.put(`/products/${id}`).set('Cookie', cookie).send({ name: 'Bad', description: 'Test', price: -1 }).expect(400);

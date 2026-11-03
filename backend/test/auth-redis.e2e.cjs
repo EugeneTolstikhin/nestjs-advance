@@ -1,3 +1,5 @@
+const { ProductMedia } = require('../dist/products/media/product-media.entity');
+const { ProductMediaService } = require('../dist/products/media/product-media.service');
 const { after, before, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID, createHmac } = require('node:crypto');
@@ -32,7 +34,7 @@ async function instance() {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(AuthStateStore).useFactory({ factory: () => new RedisAuthStateStore(redisUrl, prefix) })
         .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({
-            type: 'better-sqlite3', database: ':memory:', entities: [Products], synchronize: true,
+            type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
         }).initialize() })
         .overrideProvider(OtpFactory).useValue({ create: async () => ({ sendOtp: async (recipient, code) => {
             sends++; codes.set(recipient, code); return { message: 'Test delivery' };

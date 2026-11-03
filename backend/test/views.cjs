@@ -1,3 +1,5 @@
+const { ProductMedia } = require('../dist/products/media/product-media.entity');
+const { ProductMediaService } = require('../dist/products/media/product-media.service');
 const { after, before, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFile } = require('node:fs/promises');
@@ -21,7 +23,7 @@ before(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(getDataSourceToken())
         .useFactory({ factory: () => new DataSource({
-            type: 'better-sqlite3', database: ':memory:', entities: [Products], synchronize: true,
+            type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
         }).initialize() }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureViews(app);

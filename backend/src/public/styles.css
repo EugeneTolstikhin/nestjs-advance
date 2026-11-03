@@ -109,3 +109,21 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     .nav-button { padding: 10px; font-size: 12px; }
     .user-name { max-width: 100px; }
 }
+
+.media-uploader { margin: 28px 0; padding: 24px; border: 1px dashed #a9b59e; border-radius: 12px; background: #fff; }
+.media-uploader h2 { margin-top: 0; font: 30px Georgia, serif; }
+.upload-label { display: block; font-weight: 650; }
+.upload-label input { display: block; max-width: 100%; margin-top: 12px; padding: 10px 0; }
+.media-upload-list { padding: 0; list-style: none; display: grid; gap: 16px; }
+.media-upload-item { padding: 16px; border: 1px solid #dddcd4; border-radius: 8px; overflow-wrap: anywhere; }
+.media-upload-item:focus-visible, .product-carousel:focus-visible { outline: 3px solid #526b44; outline-offset: 3px; }
+.media-preview { display: block; width: 100%; max-height: 220px; object-fit: contain; background: #f7f6f2; margin-bottom: 12px; }
+.media-upload-item progress { display: block; width: 100%; accent-color: #526b44; }
+.product-carousel .product-image { object-fit: contain; background: #e7eadf; }
+.carousel-navigation { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; }
+.carousel-thumbnails { display: flex; gap: 8px; padding: 0 10px 12px; overflow-x: auto; }
+.carousel-thumbnails button { position: relative; flex-shrink: 0; width: 62px; height: 54px; padding: 2px; border: 2px solid transparent; border-radius: 5px; background: #e7eadf; cursor: pointer; }
+.carousel-thumbnails button[aria-current="true"] { border-color: #526b44; }
+.carousel-thumbnails img { width: 100%; height: 100%; object-fit: cover; }
+.carousel-thumbnails span { position: absolute; bottom: 2px; left: 2px; right: 2px; background: #242b25; color: #fff; font-size: 10px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #526b44; outline-offset: 3px; }
