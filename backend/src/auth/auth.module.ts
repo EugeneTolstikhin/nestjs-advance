@@ -38,6 +38,6 @@ import { SessionAuthGuard } from './guard/session-auth.guard';
     })],
     controllers: [AuthController, AuthPagesController, AccountController],
     providers: [AuthService, AuthGuard, SessionAuthGuard, UsersRepository, RegistrationService, SameOriginGuard, LoginService],
-    exports: [JwtModule, AuthGuard, AuthService],
+    exports: [JwtModule, AuthGuard, AuthService, SessionAuthGuard, SameOriginGuard],
 })
 export class AuthModule {}

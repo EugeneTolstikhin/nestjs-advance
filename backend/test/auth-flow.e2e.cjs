@@ -336,3 +336,52 @@ test('an email and phone belonging to different accounts never merge those accou
     assert.equal(users.filter(user => user.email && user.phone).length, 0);
     assert.equal(users.filter(user => user.roles.length === 2).length, 0);
 });
+
+test('seller browser sessions create, edit and delete products through the existing API', async () => {
+    const pending = await start(buyer({ typeOfUser: 'seller', buyerProfile: undefined, sellerProfile: {} }));
+    const session = await verify(pending.body.challengeId, 'email', codes.get('buyer@example.com')).expect(200);
+    const cookie = session.headers['set-cookie'][0].split(';')[0];
+    const browser = request.agent(app.getHttpServer());
+    await browser.get('/shop').set('Cookie', cookie).expect(200).expect(/href="\/shop\/new"/);
+    await browser.get('/shop/new').set('Cookie', cookie).expect(200).expect(/product-editor.js/).expect(/survey-keyboard.js/);
+    await browser.get('/shop/product-schema').set('Cookie', cookie).expect(200).expect(result => {
+        assert.deepEqual(result.body.elements.map(field => field.name), ['name', 'description', 'price', 'imageUrl']);
+    });
+    const body = { name: 'New book', description: 'Description', price: 12.5, imageUrl: 'https://example.com/book.jpg' };
+    const created = await browser.post('/products').set('Cookie', cookie).send(body).expect(201);
+    const id = created.body.id;
+    await browser.get('/shop').set('Cookie', cookie).expect(200).expect(new RegExp(`/shop/${id}/edit`)).expect(/data-delete-product/);
+    await browser.get(`/shop/${id}/edit`).set('Cookie', cookie).expect(200).expect(new RegExp(`data-product-id="${id}"`));
+    await browser.get('/shop/not-a-uuid/edit').set('Cookie', cookie).expect(400);
+    await browser.post('/products').set('Cookie', cookie).send(body).expect(409);
+    await browser.put(`/products/${id}`).set('Cookie', cookie).send({ name: 'Updated book', description: 'Edited', price: 0 }).expect(200).expect(result => {
+        assert.equal(result.body.imageUrl, null);
+        assert.equal(result.body.price, 0);
+    });
+    await browser.put(`/products/${id}`).set('Cookie', cookie).send({ name: 'Bad', description: 'Test', price: -1 }).expect(400);
+    await browser.patch(`/products/${id}`).set('Cookie', cookie).send({ price: 15 }).expect(200);
+    for (const method of ['post', 'put', 'patch', 'delete']) {
+        const path = method === 'post' ? '/products' : `/products/${id}`;
+        await browser[method](path).set('Cookie', cookie).set('Origin', 'https://untrusted.example').send(body).expect(403);
+    }
+    await browser.put(`/products/${id}`).set('Cookie', cookie).type('form').send({ price: 1 }).expect(415);
+    await browser.delete(`/products/${id}`).set('Cookie', cookie).expect(200);
+    await api.get(`/products/${id}`).expect(404);
+    await browser.get(`/shop/${id}/edit`).set('Cookie', cookie).expect(404);
+});
+
+test('guests and buyers cannot access product editors or mutate products with browser cookies', async () => {
+    await api.get('/shop').expect(200).expect(result => assert.doesNotMatch(result.text, /Add product|data-delete-product/));
+    await api.get('/shop/new').expect(401);
+    const pending = await start(buyer());
+    const session = await verify(pending.body.challengeId, 'email', codes.get('buyer@example.com')).expect(200);
+    const cookie = session.headers['set-cookie'][0].split(';')[0];
+    await api.get('/shop/new').set('Cookie', cookie).expect(403);
+    await api.get('/shop/product-schema').set('Cookie', cookie).expect(403);
+    await api.get('/shop').set('Cookie', cookie).expect(200).expect(result => assert.doesNotMatch(result.text, /Add product|data-delete-product/));
+    const id = randomUUID();
+    await api.get(`/shop/${id}/edit`).set('Cookie', cookie).expect(403);
+    await api.post('/products').set('Cookie', cookie).send({ name: 'Book', description: 'Test', price: 10 }).expect(403);
+    await api.put(`/products/${id}`).set('Cookie', cookie).send({ name: 'Book', description: 'Test', price: 10 }).expect(403);
+    await api.delete(`/products/${id}`).set('Cookie', cookie).expect(403);
+});

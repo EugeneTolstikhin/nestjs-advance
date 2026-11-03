@@ -27,6 +27,8 @@ a:focus-visible { outline: 3px solid #526b44; outline-offset: 5px; }
 .nav-button-secondary:hover { background: #e7eadf; }
 .nav-button-primary { color: #fff; background: #526b44; }
 .nav-button-primary:hover { background: #3b5330; border-color: #3b5330; }
+.nav-button-danger { color: #9b2525; border-color: #ba7373; background: #fff; }
+.nav-button-danger:hover { background: #fcf0f0; }
 .nav-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .user-avatar { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; overflow: hidden; border-radius: 50%; background: #e7eadf; color: #526b44; }
 .user-avatar svg { width: 30px; height: 30px; }
@@ -44,6 +46,12 @@ h1 { font-family: Georgia, serif; font-size: clamp(42px, 7vw, 72px); font-weight
 .product h2 { font-size: 19px; margin: 0 0 10px; overflow-wrap: anywhere; }
 .product-details p { color: #62695f; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .price { display: inline-block; font-size: 18px; font-weight: 650; margin-top: 10px; }
+.product-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+.product-actions:empty { display: none; }
+.product-dialog { max-width: min(480px, calc(100vw - 32px)); border: 1px solid #dddcd4; border-radius: 12px; padding: 28px; color: #242b25; }
+.product-dialog::backdrop { background: rgb(24 32 24 / 45%); }
+.product-dialog h2 { margin-top: 0; }
+.product-dialog p { line-height: 1.6; overflow-wrap: anywhere; }
 .empty-state { grid-column: 1 / -1; padding: 64px 24px; text-align: center; border: 1px dashed #bdc6b5; border-radius: 10px; }
 .empty-state h2 { font-family: Georgia, serif; font-weight: 400; font-size: 28px; }
 .empty-state p { color: #62695f; }
@@ -57,7 +65,9 @@ footer { max-width: 1160px; margin: auto; padding: 24px 32px; border-top: 1px so
 #login-form .sd-theme-root,
 #login-form.sd-theme-root,
 .account-survey .sd-theme-root,
-.account-survey.sd-theme-root {
+.account-survey.sd-theme-root,
+.product-editor .sd-theme-root,
+.product-editor.sd-theme-root {
     --sjs2-color-project-brand-600: #526b44;
     --sjs2-typography-font-family-text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --sjs2-layout-component-page-content-area-padding-horizontal: 28px;
@@ -65,6 +75,7 @@ footer { max-width: 1160px; margin: auto; padding: 24px 32px; border-top: 1px so
     --sjs2-layout-component-page-content-area-padding-bottom: 20px;
 }
 #registration-form .sd-root-modern, #login-form .sd-root-modern, .account-survey .sd-root-modern { min-height: 0; }
+.product-editor .sd-root-modern { min-height: 0; }
 .account-profile { margin: 32px 0; }
 .account-profile h2 { font-family: Georgia, serif; font-size: 30px; font-weight: 400; }
 .account-role { display: inline-block; padding: 5px 12px; border-radius: 20px; background: #e7eadf; color: #3b5330; }
@@ -85,7 +96,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     .site-header, footer { padding: 22px; }
     main { padding: 40px 22px 60px; }
     .auth-page { padding-top: 28px; }
-    #registration-form .sd-theme-root, #login-form .sd-theme-root, .account-survey .sd-theme-root {
+    #registration-form .sd-theme-root, #login-form .sd-theme-root, .account-survey .sd-theme-root, .product-editor .sd-theme-root {
         --sjs2-layout-component-page-content-area-padding-horizontal: 16px;
     }
 }

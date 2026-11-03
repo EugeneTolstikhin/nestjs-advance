@@ -3,8 +3,8 @@ import { AuthGuard } from './auth.guard';
 import { AuthRequest } from '../utils/auth-request';
 import { sessionToken } from '../utils/browser-session';
 
-// Only account routes opt into cookie authentication; their mutations also use
-// SameOriginGuard. Product APIs continue to require an explicit Bearer token.
+// Browser account/product routes opt into cookie authentication. Their mutations
+// also use SameOriginGuard. Explicit Bearer tokens remain supported for API clients.
 @Injectable()
 export class SessionAuthGuard extends AuthGuard {
     protected getToken(request: AuthRequest) {

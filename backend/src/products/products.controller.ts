@@ -1,7 +1,8 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto, DeleteProductDto, GetProductByIdDto, UpdateProductDto, PatchProductDto } from './products.dto';
-import { AuthGuard } from '../auth/guard/auth.guard';
+import { SessionAuthGuard } from '../auth/guard/session-auth.guard';
+import { SameOriginGuard } from '../auth/guard/same-origin.guard';
 import { Roles } from '../auth/guard/roles.decorator';
 import { TypeOfUser } from '../auth/auth.dto';
 import { Products as ProductEntity } from './products.entity';
@@ -25,14 +26,14 @@ export class ProductsController {
     }
 
     @Post()
-    @UseGuards(AuthGuard)
+    @UseGuards(SameOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
     createProduct(@Body() dto: CreateProductDto): Promise<ProductEntity> {
         return this.productsService.createProduct(dto);
     }
 
     @Put(':id')
-    @UseGuards(AuthGuard)
+    @UseGuards(SameOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
     updateProduct(
         @Param() params: GetProductByIdDto,
@@ -42,7 +43,7 @@ export class ProductsController {
     }
 
     @Patch(':id')
-    @UseGuards(AuthGuard)
+    @UseGuards(SameOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
     patchProduct(
         @Param() params: GetProductByIdDto,
@@ -52,7 +53,7 @@ export class ProductsController {
     }
 
     @Delete(':id')
-    @UseGuards(AuthGuard)
+    @UseGuards(SameOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller, TypeOfUser.Admin)
     deleteProduct(@Param() dto: DeleteProductDto): Promise<ProductEntity[]> {
         return this.productsService.deleteProduct(dto);

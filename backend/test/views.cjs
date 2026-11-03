@@ -95,3 +95,23 @@ test('authenticated navbar falls back to username when no display name is suppli
     assert.match(html, /eugene@example.com/);
     assert.match(html, /class="user-avatar"/);
 });
+
+test('seller catalog renders add/edit/delete controls and safely escaped product labels', async () => {
+    const html = await render({ title: 'Products', canEditProducts: true, canDeleteProducts: true,
+        products: [{ id: 'product-id', name: '<b>Book</b>', description: 'Test', price: '10.00' }] });
+    assert.match(html, /href="\/shop\/new">Add product/);
+    assert.match(html, /href="\/shop\/product-id\/edit"/);
+    assert.match(html, /data-delete-product="product-id"/);
+    assert.match(html, /aria-label="Delete &lt;b&gt;Book&lt;\/b&gt;"/);
+    assert.match(html, /id="delete-product-dialog"/);
+    assert.doesNotMatch(html, /<b>Book<\/b>/);
+});
+
+test('public catalog has no seller controls, and delete-only access does not expose editing', async () => {
+    const model = { title: 'Products', products: [{ id: 'p', name: 'Book', price: '10.00' }] };
+    const guest = await render(model);
+    assert.doesNotMatch(guest, /Add product|data-delete-product|delete-product-dialog|\/shop\/p\/edit/);
+    const admin = await render({ ...model, canDeleteProducts: true });
+    assert.match(admin, /data-delete-product="p"/);
+    assert.doesNotMatch(admin, /Add product|\/shop\/p\/edit/);
+});

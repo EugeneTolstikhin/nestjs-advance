@@ -18,8 +18,8 @@ is needed. The JWT secret is loaded automatically from `backend/.env`. Run
 The shop lists products from SQLite and shows an empty state until products are
 added. Buyer/seller registration is available at `/auth/register` through SurveyJS,
 with OTP verification before MongoDB persistence. SurveyJS login at `/auth/login`
-supports email/password, email/code and phone/code. Product editing forms
-are not included. JSON product endpoints remain under `/products`; `/` redirects
+supports email/password, email/code and phone/code. Sellers can add, edit and
+delete catalog products through the UI. JSON product endpoints remain under `/products`; `/` redirects
 to `/shop`.
 
 The navbar logo links to `/`. Without a `user` in the server-rendered view model,
@@ -42,6 +42,28 @@ page and activates Continue or the final action (login, verification or profile
 save). Multiline fields retain Enter for newlines, while dropdowns and radio
 groups keep their usual keyboard controls. Buttons remain usable with Tab and
 their native Enter/Space activation.
+
+### Managing products
+
+Sign in with the seller role enabled (use **My account** to enable selling).
+On `/shop`, choose **Add product** to open `/shop/new`, or **Edit** on a product
+to open `/shop/:id/edit`. SurveyJS collects a unique name, description, a
+non-negative price with up to two decimal places, and an optional direct HTTP(S)
+image URL. Save uses the existing `POST /products` or `PUT /products/:id` API;
+clearing the image field on edit removes the image. Enter in a single-line field
+submits through normal validation. Cancel returns to the catalog.
+
+**Delete** opens a confirmation dialog and calls `DELETE /products/:id` only
+after confirmation. Cancel/Escape leaves the product unchanged. Failed writes
+show an error and preserve the form/dialog for retry. Expired sessions show a
+login message without discarding edits. Successful writes return to `/shop`.
+
+Guests/buyers see the public catalog without management controls. Sellers can
+manage the shared catalog; admins retain delete-only access. Products currently
+have no owner/seller field, so edit/delete access is role-based across the catalog.
+The server enforces permissions independently of the buttons. Browser writes use
+the existing HttpOnly cookie with same-origin checks; API Bearer tokens also work.
+POST/PUT/PATCH require JSON. No JWT is exposed in the page or browser storage.
 
 Nest CLI copies templates and public assets into `dist/` during builds and watches
 them during development. `npm run build` followed by `npm run start:prod` also

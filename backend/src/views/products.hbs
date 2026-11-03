@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{title}} | Nest Shop</title>
     <link rel="stylesheet" href="/assets/styles.css">
+    {{#if canDeleteProducts}}<script src="/assets/products.js" defer></script>{{/if}}
 </head>
 <body>
     {{> navbar}}
@@ -13,6 +14,7 @@
             <p class="eyebrow">Browse the collection</p>
             <h1 id="page-title">{{title}}</h1>
             <p>A little something worth discovering.</p>
+            {{#if canEditProducts}}<a class="nav-button nav-button-primary" href="/shop/new">Add product</a>{{/if}}
         </section>
         <section class="products" aria-label="Available products">
             {{#each products}}
@@ -26,6 +28,10 @@
                     <h2>{{name}}</h2>
                     <p>{{description}}</p>
                     <span class="price">{{price}}</span>
+                    <div class="product-actions">
+                        {{#if @root.canEditProducts}}<a class="nav-button nav-button-secondary" href="/shop/{{id}}/edit" aria-label="Edit {{name}}">Edit</a>{{/if}}
+                        {{#if @root.canDeleteProducts}}<button class="nav-button nav-button-danger" type="button" data-delete-product="{{id}}" aria-label="Delete {{name}}">Delete</button>{{/if}}
+                    </div>
                 </div>
             </article>
             {{else}}
@@ -35,6 +41,17 @@
             </div>
             {{/each}}
         </section>
+        {{#if canDeleteProducts}}
+        <dialog id="delete-product-dialog" class="product-dialog" aria-labelledby="delete-product-title" aria-describedby="delete-product-description">
+            <h2 id="delete-product-title">Delete this product?</h2>
+            <p id="delete-product-description">“<span id="delete-product-name"></span>” will be permanently removed from the catalog.</p>
+            <p id="delete-product-status" class="form-status" role="status" aria-live="polite"></p>
+            <div class="product-actions">
+                <button id="cancel-delete-product" class="nav-button nav-button-secondary" type="button" autofocus>Keep product</button>
+                <button id="confirm-delete-product" class="nav-button nav-button-danger" type="button">Delete product</button>
+            </div>
+        </dialog>
+        {{/if}}
     </main>
     <footer>Nest Shop · Made for the everyday.</footer>
 </body>

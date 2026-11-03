@@ -29,7 +29,7 @@ until expiry. New JWTs contain `sub` and `roles`; role guards permit an operatio
 when any required role matches. Public registration/profile requests cannot assign
 admin access. Account endpoints accept the session cookie or a Bearer token;
 mutations require JSON and reject cross-origin browser requests. Product write
-APIs continue to require Bearer tokens.
+APIs accept Bearer tokens or the HttpOnly browser session, with the same role checks.
 
 Profile endpoints identify the owner solely from the verified session/JWT. A request
 cannot submit another user ID, edit contacts or grant arbitrary roles. The owner's
@@ -155,8 +155,10 @@ registration attempts.
 
 All authentication POST requests require `Content-Type: application/json`.
 Cross-origin browser authentication POSTs are rejected. Cookie credentials are
-used for the server-rendered user context; existing product write routes still
-require their Bearer token and role guard.
+used for the server-rendered user context and product management UI. Product writes
+use `SameOriginGuard` and `SessionAuthGuard`, accepting the session cookie or a
+Bearer token. POST/PUT/PATCH requests require JSON; DELETE may omit its body.
+Cross-origin writes are rejected for all these methods.
 
 1. `POST /auth/register` with `{ "user": { ...registrationFields } }` returns
    202 with a secret `challengeId`, expiry, and the required contact checks.
@@ -275,6 +277,10 @@ The former placeholder `POST /auth/register-by-phone` directs clients to the
 complete registration flow instead of reporting false success.
 
 Send `Authorization: Bearer <access_token>` in Posting for product write requests.
+The browser UI sends same-origin cookie credentials to these same endpoints.
+Seller-only editor pages are `/shop/new`, `/shop/:id/edit` and `/shop/product-schema`.
+Catalog management controls on `/shop` follow the role table below. Access is
+catalog-wide; product ownership is not currently modeled.
 
 | Operation | Access |
 | --- | --- |

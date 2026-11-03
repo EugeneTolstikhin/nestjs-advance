@@ -4,6 +4,8 @@ const { Test } = require('@nestjs/testing');
 const { JwtService } = require('@nestjs/jwt');
 const { AuthModule } = require('../dist/auth/auth.module');
 const { AuthGuard } = require('../dist/auth/guard/auth.guard');
+const { SessionAuthGuard } = require('../dist/auth/guard/session-auth.guard');
+const { SameOriginGuard } = require('../dist/auth/guard/same-origin.guard');
 const { Roles } = require('../dist/auth/guard/roles.decorator');
 
 let moduleRef;
@@ -90,7 +92,8 @@ test('every product write is guarded and seller-only, while reads are public', (
     for (const method of ['createProduct', 'updateProduct', 'patchProduct', 'deleteProduct']) {
         const route = ProductsController.prototype[method];
         assert.deepEqual(Reflect.getMetadata('roles', route), method === 'deleteProduct' ? ['seller', 'admin'] : ['seller']);
-        assert.ok(Reflect.getMetadata('__guards__', route).includes(AuthGuard));
+        assert.ok(Reflect.getMetadata('__guards__', route).includes(SessionAuthGuard));
+        assert.ok(Reflect.getMetadata('__guards__', route).includes(SameOriginGuard));
     }
     for (const method of ['getProducts', 'getProductById']) {
         assert.equal(Reflect.getMetadata('__guards__', ProductsController.prototype[method]), undefined);
