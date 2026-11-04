@@ -96,7 +96,7 @@
                     try {
                         const result = await api('/auth/register/resend', { challengeId: challenge.challengeId, channel: contact.channel });
                         showChallenge(result);
-                        message('A new code is ready. The previous code no longer works.');
+                        message('A new code is queued for delivery. The previous code no longer works.');
                     } catch (error) { message(error.message, true); }
                     finally { busy = false; updateButtons(); }
                 });

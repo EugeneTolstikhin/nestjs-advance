@@ -98,6 +98,35 @@ describe('Bulk media UI and buyer carousel', () => {
         expect(fetchMock.mock.calls.some(([path, options]) => path === `/media/tickets/${uploaded}` && options?.method === 'DELETE')).toBe(true);
         expect(manager.ids()).toEqual([]);
     });
+    it('waits for background processing before allowing the product to be saved', async () => {
+        let ready = false;
+        fetchMock.mockImplementation(async (path: string) => {
+            if (path === '/media/config') return response(config);
+            if (path === '/media/tickets') return response({ id });
+            return response({ status: ready ? 'ready' : 'processing', url: '/media/files/ready', attached: false });
+        });
+        await create(); manager.add([photo()]);
+        await vi.waitFor(() => expect(manager.items[0]?.state).toBe('processing'));
+        expect(manager.items[0].label.textContent).toContain('Processing');
+        expect(() => manager.ids()).toThrow('pending uploads');
+        expect(manager.items[0].retry.hidden).toBe(true);
+        ready = true;
+        await vi.waitFor(() => expect(manager.items[0]?.state).toBe('ready'), { timeout: 2000 });
+        expect(manager.ids()).toEqual([id]);
+    });
+    it('can remove a file while its background processing is pending', async () => {
+        fetchMock.mockImplementation(async (path: string, options: any) => {
+            if (path === '/media/config') return response(config);
+            if (path === '/media/tickets') return response({ id });
+            if (options?.method === 'DELETE') return response({}, 204);
+            return response({ status: 'processing', attached: false });
+        });
+        await create(); manager.add([photo()]);
+        await vi.waitFor(() => expect(manager.items[0]?.state).toBe('processing'));
+        await manager.remove(manager.items[0]);
+        expect(manager.items).toHaveLength(0);
+        expect(manager.ids()).toEqual([]);
+    });
     it('shows both photos and videos in a keyboard-controlled carousel and pauses hidden video', () => {
         window.document.body.innerHTML = `<div data-carousel tabindex="0"><div class="carousel-slide"><img alt="Photo"></div><div class="carousel-slide" hidden><video controls></video></div><div class="carousel-navigation" hidden><button data-carousel-prev>Previous</button><span data-carousel-count></span><button data-carousel-next>Next</button></div><div class="carousel-thumbnails" hidden><button data-carousel-thumb>Photo</button><button data-carousel-thumb>Video</button></div></div>`;
         const video = window.document.querySelector('video')!;

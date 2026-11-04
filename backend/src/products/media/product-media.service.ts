@@ -13,6 +13,7 @@ import { Products } from '../products.entity';
 import { ProductMedia } from './product-media.entity';
 import { mediaConfig } from './media.config';
 import { UploadTicketDto } from './media.dto';
+import { JobQueue, PermanentJobError, type JobContext } from '../../jobs/job-queue';
 
 const execute = promisify(execFile);
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
@@ -25,10 +26,12 @@ export class ProductMediaService implements OnModuleInit, OnModuleDestroy {
     private readonly active = new Map<string, string>();
     private queue: Promise<unknown> = Promise.resolve();
     private timer?: ReturnType<typeof setInterval>;
-    constructor(private readonly db: DataSource) {}
+    constructor(private readonly db: DataSource, private readonly jobs: JobQueue) {}
     private get repository() { return this.db.getRepository(ProductMedia); }
-    onModuleInit() {
-        this.timer = setInterval(() => { void this.cleanup().catch(() => {}); }, 10 * 60_000);
+    async onModuleInit() {
+        await this.jobs.register('media-processing', (data: { id: string }, context) => this.process(data.id, context));
+        await this.recoverProcessing();
+        this.timer = setInterval(() => { void this.cleanup().then(() => this.recoverProcessing()).catch(() => {}); }, 10 * 60_000);
         this.timer.unref();
     }
     onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
@@ -65,7 +68,7 @@ export class ProductMediaService implements OnModuleInit, OnModuleDestroy {
         return this.exclusive(async () => this.db.transaction(async manager => {
             const video = dto.type.startsWith('video/');
             if (dto.size > (video ? this.config.videoBytes : this.config.imageBytes)) throw new HttpException('File exceeds the allowed size', 413);
-            const all = await manager.find(ProductMedia, { where: { status: In(['reserved', 'uploading', 'ready', 'deleted']) } });
+            const all = await manager.find(ProductMedia, { where: { status: In(['reserved', 'uploading', 'processing', 'ready', 'failed', 'deleted']) } });
             const drafts = all.filter(item => item.ownerId === ownerId && !item.productId);
             const reservation = dto.size + (video ? 1024 ** 2 : this.config.imageBytes);
             if (drafts.length >= this.config.maxFiles || drafts.reduce((sum, item) => sum + item.size, 0) + dto.size > this.config.draftBytes) {
@@ -183,11 +186,15 @@ export class ProductMediaService implements OnModuleInit, OnModuleDestroy {
                     const item = await this.owned(id, this.owners.getStore()!);
                     if (item.status === 'failed' || item.expiresAt <= Date.now()) throw { status_code: 410, body: 'Upload expired or invalid' };
                     if (item.productId && request.method === 'PATCH') throw { status_code: 409, body: 'Published media cannot be modified' };
+                    if (['processing', 'ready'].includes(item.status) && request.method === 'PATCH') {
+                        throw { status_code: 409, body: 'Upload bytes are complete and immutable' };
+                    }
+                    if (request.method === 'HEAD' && item.status === 'processing') await this.scheduleProcessing(id, item.ownerId);
                     // Recover if a process stopped after the final bytes were stored
                     // but before the validation hook committed its ready state.
                     if (request.method === 'HEAD' && item.status === 'uploading' && !this.active.has(id) &&
                         await stat(this.raw(id)).then(s => s.size === item.size).catch(() => false)) {
-                        await this.finalize(id, item.ownerId);
+                        await this.scheduleProcessing(id, item.ownerId);
                     }
                 }
             },
@@ -200,7 +207,7 @@ export class ProductMediaService implements OnModuleInit, OnModuleDestroy {
                 return { metadata: { ticket: item.id } };
             },
             onUploadFinish: async (_request, upload) => {
-                await this.finalize(upload.id, this.owners.getStore()!);
+                await this.scheduleProcessing(upload.id, this.owners.getStore()!);
                 return {};
             },
             onResponseError: (_request, error) => {
@@ -209,17 +216,42 @@ export class ProductMediaService implements OnModuleInit, OnModuleDestroy {
             },
         });
     }
-    private async finalize(id: string, ownerId: string) {
+    private async scheduleProcessing(id: string, ownerId: string) {
+        const item = await this.owned(id, ownerId);
+        if (item.status === 'ready') return;
+        if (!['uploading', 'processing'].includes(item.status)) throw new GoneException('Upload is no longer active');
+        await this.repository.update({ id, status: 'uploading' }, { status: 'processing' });
+        try { await this.jobs.add('media-processing', { id }, `media-${id}`); }
+        catch (error) {
+            if (error instanceof PermanentJobError) throw { status_code: 422, body: error.message };
+            throw error;
+        }
+    }
+    private async recoverProcessing() {
+        // SQL is the durable source of pending work. Repair a crash between SQL and Redis.
+        const items = await this.repository.find({ where: { status: In(['uploading', 'processing']) } });
+        for (const item of items) {
+            if (item.expiresAt <= Date.now() || this.active.has(item.id)) continue;
+            if (await stat(this.raw(item.id)).then(s => s.size === item.size).catch(() => false)) {
+                try { await this.scheduleProcessing(item.id, item.ownerId); }
+                catch { /* Retried on the next reconciliation or client status request. */ }
+            }
+        }
+    }
+    async process(id: string, context: JobContext) {
         await this.exclusive(async () => {
-            const item = await this.owned(id, ownerId);
-            if (item.status === 'ready') return;
-            if (item.status !== 'uploading') throw new GoneException('Upload is no longer active');
+            const item = await this.repository.findOneBy({ id });
+            if (!item || item.status !== 'processing' || item.expiresAt <= Date.now()) return;
             try { await this.validate(item); }
             catch (error) {
-                const message = error instanceof BadRequestException ? error.message : 'Media validation failed';
-                await this.repository.update(item.id, { status: 'failed', error: message, reservedBytes: 0 });
-                await this.removeFiles(item.id);
-                throw { status_code: 422, body: message };
+                if (error instanceof BadRequestException) {
+                    await this.repository.update(item.id, { status: 'failed', error: error.message });
+                    await this.removeFiles(item.id);
+                    await this.repository.update(item.id, { reservedBytes: 0 });
+                    throw new PermanentJobError(error.message);
+                }
+                if (context.lastAttempt) await this.repository.update(item.id, { status: 'failed', error: 'Media processing failed. Remove the file and upload it again.' });
+                throw error;
             }
         });
     }
@@ -239,7 +271,10 @@ export class ProductMediaService implements OnModuleInit, OnModuleDestroy {
         if (!signatures[item.mimeType]) throw new BadRequestException('File contents do not match the declared media type');
         if (item.kind === 'image') {
             const image = sharp(source, { limitInputPixels: this.config.maxPixels, animated: false });
-            const meta = await image.metadata();
+            const meta = await image.metadata().catch(error => {
+                if ((error as Error).message.includes('pixel limit')) throw new BadRequestException('Photo exceeds the allowed pixel dimensions');
+                throw error;
+            });
             const expected = { 'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp' }[item.mimeType];
             if (meta.format !== expected || (meta.pages ?? 1) > 1) throw new BadRequestException('File contents do not match a supported photo');
             const output = await image.rotate().resize({ width: 2560, height: 2560, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(this.image(item.id));

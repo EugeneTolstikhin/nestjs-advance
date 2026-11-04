@@ -1,5 +1,6 @@
 const { ProductMedia } = require('../dist/products/media/product-media.entity');
 const { ProductMediaService } = require('../dist/products/media/product-media.service');
+const { InlineJobQueue } = require('../dist/jobs/job-queue');
 const { afterEach, beforeEach, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { DataSource, QueryFailedError } = require('typeorm');
@@ -15,7 +16,7 @@ beforeEach(async () => {
         type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
     }).initialize();
     repository = db.getRepository(Products);
-    service = new ProductsService(repository, new ProductMediaService(db));
+    service = new ProductsService(repository, new ProductMediaService(db, new InlineJobQueue()));
 });
 
 afterEach(async () => {
@@ -53,7 +54,7 @@ test('other database failures are not reported as duplicate names', async () => 
 test('reads and deletes use database rows across service instances', async () => {
     const first = await service.createProduct({ name: 'Book', description: 'First', price: 10 });
     const second = await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 });
-    const anotherService = new ProductsService(repository, new ProductMediaService(db));
+    const anotherService = new ProductsService(repository, new ProductMediaService(db, new InlineJobQueue()));
     assert.equal((await anotherService.getProducts()).length, 2);
     assert.equal((await anotherService.getProductById({ id: first.id })).name, 'Book');
     const remaining = await anotherService.deleteProduct({ id: first.id });

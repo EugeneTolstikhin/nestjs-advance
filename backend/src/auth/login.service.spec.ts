@@ -32,7 +32,7 @@ describe('LoginService', () => {
     it.each(['email', 'phone'] as const)('logs in using a verified %s code only once', async channel => {
         const contact = user[channel] as string;
         const pending = await service.start({ channel, contact });
-        expect(send).toHaveBeenCalledWith(contact, expect.stringMatching(/^\d{6}$/));
+        expect(send).toHaveBeenCalledWith(contact, expect.stringMatching(/^\d{6}$/), expect.objectContaining({ expiresAt: expect.any(Number) }));
         expect(JSON.stringify(pending)).not.toContain(code);
         expect(auth.createSession).not.toHaveBeenCalled();
         expect(await service.verify(pending.challengeId, code)).toEqual({ access_token: 'session' });

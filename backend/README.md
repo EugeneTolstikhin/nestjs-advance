@@ -80,6 +80,10 @@ an independently built frontend application.
 
 ## OTP sender factory
 
+OTP delivery and media processing run as BullMQ background jobs. Workers start
+with the application and use local Redis. See [JOBS.md](./JOBS.md) for setup,
+retries, processing status, and where to add future provider/media implementations.
+
 `src/user-interaction/configs/otp.config.json` configures separate `phone` and
 `email` providers. Both are initially `null`; LOG is the default delivery channel.
 Missing files, absent providers, or missing API URLs fall back to LOG. Malformed
@@ -128,8 +132,8 @@ For future provider integrations, a channel setting can look like:
 
 Store API credentials in environment variables, not this JSON. Non-LOG phone
 configuration selects `SmsOtpHandler`; email selects `EmailOtpHandler`. Both are
-integration placeholders and currently return 501 instead of sending or claiming
-delivery. Provider-specific payloads, authentication and RCS/SMS routing must be
+integration placeholders and fail the queued delivery job with 501 rather than
+claiming delivery. Provider-specific payloads, authentication and RCS/SMS routing must be
 implemented in those adapters. The standalone OTP endpoint is a delivery demo;
 registration uses `RegistrationService` to manage hashed codes, expiry, verification
 attempts, resend limits, and completion.

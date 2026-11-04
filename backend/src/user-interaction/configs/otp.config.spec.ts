@@ -137,12 +137,17 @@ describe('OTP configuration and factory', () => {
         process.env.NODE_ENV = 'development';
         vi.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
         const moduleRef = await Test.createTestingModule({ imports: [UserInteractionModule] }).compile();
+        const secret = process.env.JWT_SECRET;
+        process.env.JWT_SECRET = 'test-only-secret-with-at-least-32-characters';
         try {
-            expect(await moduleRef.get(OtpFactory).create()).toBeInstanceOf(LogOtpHandler);
+            await moduleRef.init();
+            expect((await moduleRef.get(OtpFactory).create()).delivery).toBe('LOG');
             await expect(moduleRef.get(UserInteractionService).sendOtp())
-                .resolves.toEqual({ message: 'Development OTP written to the server log' });
+                .resolves.toEqual({ message: 'OTP delivery queued' });
         } finally {
             await moduleRef.close();
+            if (secret === undefined) delete process.env.JWT_SECRET;
+            else process.env.JWT_SECRET = secret;
         }
     });
 });

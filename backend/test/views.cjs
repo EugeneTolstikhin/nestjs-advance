@@ -117,3 +117,4 @@ test('public catalog has no seller controls, and delete-only access does not exp
     assert.match(admin, /data-delete-product="p"/);
     assert.doesNotMatch(admin, /Add product|\/shop\/p\/edit/);
 });
+process.env.JOBS_DRIVER = 'inline';

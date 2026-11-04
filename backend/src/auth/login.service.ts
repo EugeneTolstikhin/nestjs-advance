@@ -44,19 +44,27 @@ export class LoginService {
         const verified = user && (dto.channel === 'email' ? user.emailVerifiedAt : user.phoneVerifiedAt);
         const code = String(randomInt(100000, 1000000));
         // Unknown/unverified contacts receive the same response, but cannot authenticate.
-        if (verified) {
-            const sender = await this.factory.create(dto.channel);
-            await sender.sendOtp(normalized, code);
-        }
         await this.state.put<LoginChallenge>(`login:challenge:${id}`, {
             userId: verified ? user._id : undefined, contact: normalized, channel: dto.channel,
             digest: this.digest(id, code), expiresAt, attempts: 0,
         }, expiresAt);
         // Shared contact pointer invalidates previous codes without scanning Redis.
         await this.state.put(`login:current:${normalized}`, id, expiresAt);
+        if (verified) {
+            try {
+                const sender = await this.factory.create(dto.channel);
+                await sender.sendOtp(normalized, code, { expiresAt, validity: {
+                    key: `login:challenge:${id}`, digest: this.digest(id, code),
+                    currentKey: `login:current:${normalized}`, challengeId: id,
+                } });
+            } catch (error) {
+                await this.state.remove(`login:challenge:${id}`);
+                throw error;
+            }
+        }
         return { challengeId: id, expiresAt: new Date(expiresAt).toISOString(),
             resendAt: new Date(Date.now() + 60_000).toISOString(),
-            message: 'If this contact belongs to a verified account, a login code has been sent.' };
+            message: 'If this contact belongs to a verified account, a login code has been queued for delivery.' };
     }
 
     async verify(id: string, code: string) {

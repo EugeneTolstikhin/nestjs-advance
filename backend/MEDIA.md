@@ -37,6 +37,12 @@ with `database.sqlite`; changing the storage directory without moving its conten
 makes old file references unavailable. No storage directory is publicly mounted.
 Files are served through the media controller only after readiness/access checks.
 
+Media processing now uses BullMQ and requires Redis when running the application.
+Workers start automatically with Nest. Upload bytes finish first; the editor shows
+**Processing…** while validation/conversion/poster generation runs, then **Ready**
+or an error. Only ready media can be attached. See [JOBS.md](./JOBS.md) for queue
+configuration, retries, recovery and extension points.
+
 ## Default limits
 
 | Limit | Default |
@@ -124,7 +130,8 @@ active streams are skipped, and unsaved expired uploads are removed. Files marke
 deleted are inaccessible immediately, even before physical cleanup completes.
 
 The local media module currently targets **one Node process on one machine**.
-Its queues, byte-stream admission control, and tus locks are process-local. Before
+Its BullMQ jobs are Redis-backed, but file-operation locks, byte-stream admission
+control, and tus locks are process-local. Before
 running multiple upload workers, use shared file storage, a shared tus locker and
 coordinated quota/concurrency management. Redis-backed auth/rate limits do not by
 themselves make a local filesystem upload service distributed.
@@ -156,12 +163,15 @@ in the product body as an `id` field. Product JSON responses include an ordered
 ```sh
 npm test
 npm run test:media
+npm run test:jobs
 ```
 
 The media integration suite uses temporary local directories and SQLite files. It
 uploads real generated PNG/MP4/WebM data, resumes after a partial transfer and app
 restart, exercises the official tus client, checks private/public access and HTTP
 Range streaming, and verifies invalid content, ownership, expiry and quotas. It
-requires FFmpeg but no MongoDB/Redis connection. Existing auth suites retain their
+uses the explicit inline job adapter and requires FFmpeg but no MongoDB/Redis
+connection. `test:jobs` additionally exercises real BullMQ workers with local Redis.
+Existing auth suites retain their
 own isolated test databases. The browser DOM tests cover bulk selection, ordering,
 pause/resume, removal, pending-save protection and mixed-media carousel navigation.

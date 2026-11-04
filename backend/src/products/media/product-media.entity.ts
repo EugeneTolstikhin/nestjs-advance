@@ -11,7 +11,7 @@ export class ProductMedia {
     @Column('text') mimeType: string;
     @Column('integer') size: number;
     @Column('integer') reservedBytes: number;
-    @Column('text') status: 'reserved' | 'uploading' | 'ready' | 'failed' | 'deleted';
+    @Column('text') status: 'reserved' | 'uploading' | 'processing' | 'ready' | 'failed' | 'deleted';
     @Column('text', { nullable: true }) error: string | null;
     @Column('integer') expiresAt: number;
     @Column('integer', { default: 0 }) width: number;

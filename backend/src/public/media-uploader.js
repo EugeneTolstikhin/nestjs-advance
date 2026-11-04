@@ -23,7 +23,7 @@ globalThis.ProductMediaUploader = class {
         root.addEventListener('drop', event => { event.preventDefault(); if (event.dataTransfer.files.length) this.add([...event.dataTransfer.files]); });
         for (const media of initial) this.insert({ ...media, existing: true, state: 'ready', uploaded: media.size });
         this.refresh();
-        window.addEventListener('pagehide', () => { for (const item of this.items) { item.upload?.abort(false); if (item.localUrl) URL.revokeObjectURL(item.localUrl); } });
+        window.addEventListener('pagehide', () => { this.stopped = true; for (const item of this.items) { item.settle?.(); item.upload?.abort(false); if (item.localUrl) URL.revokeObjectURL(item.localUrl); } });
     }
     mb(bytes) { return `${Math.round(bytes / 1024 ** 2)} MiB`; }
     message(text, error = false) { this.notice.textContent = text; this.notice.classList.toggle('form-error', error); }
@@ -90,12 +90,12 @@ globalThis.ProductMediaUploader = class {
         item.earlier.disabled = this.locked || index === 0; item.later.disabled = this.locked || index === this.items.length - 1;
         item.remove.disabled = this.locked || item.removing;
         item.retry.disabled = this.locked || item.removing;
-        item.retry.hidden = item.state === 'ready' || item.invalid;
+        item.retry.hidden = ['ready', 'processing'].includes(item.state) || item.invalid;
         item.retry.textContent = item.state === 'uploading' ? 'Pause' : item.state === 'queued' ? 'Pause' : 'Retry / resume';
         item.retry.setAttribute('aria-label', `${item.retry.textContent}: ${item.name}`);
         const percent = item.size ? Math.min(100, Math.round(item.uploaded / item.size * 100)) : 0;
         item.progress.value = item.state === 'ready' ? 100 : percent;
-        item.label.textContent = `${index + 1}. ${item.state === 'ready' ? 'Ready' : item.state === 'uploading' && percent === 100 ? 'Validating…' : `${item.state} (${percent}%)`}${item.error ? ` — ${item.error}` : ''}`;
+        item.label.textContent = `${index + 1}. ${item.state === 'ready' ? 'Ready' : item.state === 'processing' ? 'Processing…' : item.state === 'uploading' && percent === 100 ? 'Upload complete…' : `${item.state} (${percent}%)`}${item.error ? ` — ${item.error}` : ''}`;
     }
     move(item, direction) {
         if (this.locked) return; const from = this.items.indexOf(item), to = from + direction;
@@ -125,11 +125,12 @@ globalThis.ProductMediaUploader = class {
         finally { item.removing = false; if (this.items.includes(item)) this.update(item); this.pump(); }
     }
     pump() {
+        if (this.stopped) return;
         for (const item of this.items) {
             if (this.active >= 2) return;
             if (item.state !== 'queued' || item.removing || item.running) continue;
             item.state = 'uploading'; item.running = true; this.active++; this.update(item);
-            item.work = this.run(item).catch(error => { if (item.state === 'uploading') { item.state = 'failed'; item.error = error.message; } })
+            item.work = this.run(item).catch(error => { if (['uploading', 'processing'].includes(item.state)) { item.state = 'failed'; item.error = error.message; } })
                 .finally(() => { this.active--; item.running = false; item.settle = null; if (this.items.includes(item)) this.update(item); this.pump(); });
         }
     }
@@ -141,6 +142,10 @@ globalThis.ProductMediaUploader = class {
         return body;
     }
     async run(item) {
+        if (item.id) {
+            const status = await this.json(`/media/tickets/${item.id}`);
+            if (['ready', 'processing', 'failed'].includes(status.status)) { await this.waitUntilReady(item, status); return; }
+        }
         const options = {
             endpoint: this.config.endpoint, chunkSize: 5 * 1024 ** 2, retryDelays: [0, 1000, 3000, 5000], removeFingerprintOnSuccess: false,
             metadata: {},
@@ -156,14 +161,16 @@ globalThis.ProductMediaUploader = class {
                 if (url.origin !== window.location.origin || !/^\/media\/uploads\/[a-f0-9-]{36}$/.test(url.pathname)) continue;
                 try {
                     const id = url.pathname.split('/').pop(); const status = await this.json(`/media/tickets/${id}`);
-                    if (!['reserved', 'uploading', 'ready'].includes(status.status) || status.attached) continue;
+                    if (!['reserved', 'uploading', 'processing', 'ready'].includes(status.status) || status.attached) continue;
                     item.id = id; item.uploadUrl = record.uploadUrl;
                     if (item.state !== 'uploading') return;
                     if (status.status === 'ready') { this.ready(item, status); return; }
+                    if (status.status === 'processing') { item.pendingStatus = status; break; }
                     upload.resumeFromPreviousUpload(record); break;
                 } catch { /* Expired/other-account uploads must not be reused. */ }
             }
         }
+        if (item.pendingStatus) { await this.waitUntilReady(item, item.pendingStatus); item.pendingStatus = null; return; }
         if (!item.id) {
             const ticket = await this.json('/media/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: item.name, type: item.type, size: item.size }) });
             item.id = ticket.id;
@@ -183,11 +190,23 @@ globalThis.ProductMediaUploader = class {
                 reject(new Error(code === 401 ? 'Session expired. Log in in another tab, then retry / resume.' : `Upload failed${code ? ` (${code})` : ''}. Retry / resume or remove this file.`));
             };
             upload.options.onSuccess = async () => {
-                try { const status = await this.json(`/media/tickets/${item.id}`); if (item.state !== 'uploading') { resolve(); return; } if (status.status !== 'ready') throw new Error(status.error || 'File validation did not complete'); this.ready(item, status); resolve(); }
+                try { const status = await this.json(`/media/tickets/${item.id}`); if (item.state !== 'uploading') { resolve(); return; } await this.waitUntilReady(item, status); resolve(); }
                 catch (error) { reject(error); }
             };
             upload.start();
         });
+    }
+    async waitUntilReady(item, status) {
+        if (!['uploading', 'processing'].includes(item.state)) return;
+        item.state = 'processing'; this.update(item);
+        while (!this.stopped && item.state === 'processing') {
+            if (status.status === 'ready') { this.ready(item, status); return; }
+            if (status.status === 'failed') { item.invalid = true; throw new Error(status.error || 'Media processing failed. Remove the file and choose another.'); }
+            if (!['processing', 'uploading'].includes(status.status)) throw new Error('Media processing could not be started. Retry or remove the file.');
+            await new Promise(resolve => { const timer = setTimeout(resolve, 1000); item.settle = () => { clearTimeout(timer); resolve(); }; });
+            if (this.stopped || item.state !== 'processing') return;
+            status = await this.json(`/media/tickets/${item.id}`);
+        }
     }
     ready(item, status) {
         item.state = 'ready'; item.error = ''; item.uploaded = item.size; item.url = status.url;

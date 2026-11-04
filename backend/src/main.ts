@@ -12,8 +12,14 @@ async function bootstrap() {
     loadEnvFile(envPath);
   }
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  await configureViews(app);
-  await app.listen(process.env.PORT ?? 3000);
+  try {
+    app.enableShutdownHooks();
+    await configureViews(app);
+    await app.listen(process.env.PORT ?? 3000);
+  } catch (error) {
+    await app.close();
+    throw error;
+  }
 }
 bootstrap().catch((error: unknown) => {
   console.error(error);

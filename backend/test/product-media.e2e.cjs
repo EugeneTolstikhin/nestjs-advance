@@ -273,3 +273,4 @@ test('the actual browser tus bundle and uploader send bulk files using the brows
         window.dispatchEvent(new window.Event('pagehide')); await window.happyDOM.abort(); window.close();
     }
 });
+process.env.JOBS_DRIVER ??= 'inline';

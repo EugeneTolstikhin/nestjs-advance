@@ -164,3 +164,4 @@ test('a single-role registration already pending in Redis finishes in the new ac
     assert.equal(stored.typeOfUser, undefined);
     assert.equal(stored.profile, undefined);
 });
+process.env.JOBS_DRIVER = 'inline';

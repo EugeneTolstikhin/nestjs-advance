@@ -387,3 +387,4 @@ test('guests and buyers cannot access product editors or mutate products with br
     await api.put(`/products/${id}`).set('Cookie', cookie).send({ name: 'Book', description: 'Test', price: 10 }).expect(403);
     await api.delete(`/products/${id}`).set('Cookie', cookie).expect(403);
 });
+process.env.JOBS_DRIVER = 'inline';

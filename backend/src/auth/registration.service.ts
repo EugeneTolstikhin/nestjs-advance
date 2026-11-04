@@ -76,6 +76,7 @@ export class RegistrationService {
             expiresAt: now + this.challengeLifetime, saving: false,
         };
         // Passwords and confirmation values are never retained in pending state.
+        const deliveries: (() => Promise<unknown>)[] = [];
         for (const channel of ['email', 'phone'] as const) {
             const recipient = user[channel];
             if (!recipient) continue;
@@ -85,9 +86,11 @@ export class RegistrationService {
                 expiresAt: 0, lastSentAt: 0, sending: false, delivery: channel,
             };
             pending.contacts[channel] = contact;
-            await this.deliver(pending, channel, contact);
+            deliveries.push(await this.prepareDelivery(pending, channel, contact));
         }
         await this.state.put(`registration:${pending.id}`, pending, pending.expiresAt);
+        try { for (const deliver of deliveries) await deliver(); }
+        catch (error) { await this.state.remove(`registration:${pending.id}`); throw error; }
         return this.status(pending);
     }
 
@@ -158,12 +161,15 @@ export class RegistrationService {
         const contact = pending.contacts[channel]!;
         try {
             await this.state.limit(`otp:contact:${contact.recipient}`, 5);
-            await this.deliver(pending, channel, contact);
+            const deliver = await this.prepareDelivery(pending, channel, contact);
+            // Persist the new digest before a worker can deliver it.
+            const current = await this.finishResend(id, channel, contact);
+            await deliver();
+            return this.status(current);
         } catch (error) {
             await this.finishResend(id, channel, undefined);
             throw error;
         }
-        return this.status(await this.finishResend(id, channel, contact));
     }
 
     private finishResend(id: string, channel: ContactChannel, updated?: ContactChallenge) {
@@ -177,18 +183,19 @@ export class RegistrationService {
         });
     }
 
-    private async deliver(pending: PendingRegistration, channel: ContactChannel, contact: ContactChallenge) {
+    private async prepareDelivery(pending: PendingRegistration, channel: ContactChannel, contact: ContactChallenge) {
         contact.sending = true;
         try {
             const sender = await this.otpFactory.create(channel);
             let code: string;
             do { code = String(randomInt(100000, 1000000)); }
             while (this.digest(pending.id, channel, code) === contact.digest);
-            await sender.sendOtp(contact.recipient, code);
             contact.digest = this.digest(pending.id, channel, code);
-            contact.delivery = sender instanceof LogOtpHandler ? 'LOG' : channel;
+            contact.delivery = sender.delivery ?? (sender instanceof LogOtpHandler ? 'LOG' : channel);
             contact.lastSentAt = Date.now();
             contact.expiresAt = Math.min(pending.expiresAt, Date.now() + this.codeLifetime);
+            return () => sender.sendOtp(contact.recipient, code, { expiresAt: contact.expiresAt,
+                validity: { key: `registration:${pending.id}`, channel, digest: contact.digest } });
         } finally {
             contact.sending = false;
         }
