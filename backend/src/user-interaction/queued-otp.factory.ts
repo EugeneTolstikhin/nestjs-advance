@@ -57,7 +57,7 @@ export class QueuedOtpFactory extends OtpFactory implements OnModuleInit {
             if (check.currentKey && await this.state.get<string>(check.currentKey) !== check.challengeId) return;
         }
         const sender = await this.direct.create(payload.channel);
-        try { await sender.sendOtp(payload.recipient, payload.code, { idempotencyKey: context.id }); }
+        try { await sender.sendOtp(payload.recipient, payload.code, { idempotencyKey: context.id, expiresAt: payload.expiresAt }); }
         catch (error) {
             // Misconfigured adapters / invalid requests cannot succeed by retrying.
             const status = (error as { getStatus?: () => number })?.getStatus?.();

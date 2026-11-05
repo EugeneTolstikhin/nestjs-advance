@@ -6,6 +6,7 @@ import { AuthStorageModule } from '../auth/storage/auth-storage.module';
 import { SameOriginGuard } from '../auth/guard/same-origin.guard';
 import { JobsModule } from '../jobs/job-queue';
 import { QueuedOtpFactory } from './queued-otp.factory';
+import { EnvironmentOtpConfigSource } from './configs/env-otp.config';
 
 @Module({
   imports: [AuthStorageModule, JobsModule],
@@ -13,7 +14,8 @@ import { QueuedOtpFactory } from './queued-otp.factory';
   providers: [
     SameOriginGuard,
     UserInteractionService,
-    { provide: OtpConfigSource, useClass: JsonOtpConfigSource },
+    JsonOtpConfigSource,
+    { provide: OtpConfigSource, useClass: EnvironmentOtpConfigSource },
     ConfiguredOtpFactory,
     { provide: OtpFactory, useClass: QueuedOtpFactory },
   ],

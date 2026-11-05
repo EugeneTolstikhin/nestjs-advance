@@ -22,7 +22,8 @@
         <div id="login-form" class="auth-card"><p>Loading login form…</p></div>
         <div id="login-code-actions" hidden>
             <p class="auth-note">Codes expire after five minutes. A new code replaces the previous one.</p>
-            {{#if development}}<p class="dev-notice">When no delivery provider is configured, look for your login code in the server terminal.</p>{{/if}}
+            {{#if mailpit}}<p class="dev-notice">Find development email codes in <a href="http://localhost:8025" target="_blank" rel="noopener">Mailpit</a>. LOG codes appear in the server terminal.</p>
+            {{else}}{{#if development}}<p class="dev-notice">For LOG delivery, look for your login code in the server terminal.</p>{{/if}}{{/if}}
             <div class="otp-actions">
                 <button id="login-resend" type="button" class="nav-button nav-button-secondary">Resend code</button>
                 <button id="login-back" type="button" class="nav-button nav-button-secondary">Use another login method</button>

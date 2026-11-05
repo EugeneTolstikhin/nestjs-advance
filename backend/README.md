@@ -29,8 +29,9 @@ it displays Login and Register links to `/auth/login` and `/auth/register`. With
 page load their user context from the verified HttpOnly session cookie and MongoDB.
 Registration sets the cookie only after all supplied contacts pass OTP verification.
 Login sets the same cookie and redirects to `/shop`. Logout clears it and returns
-to the guest navbar. With the default OTP configuration, login codes appear only
-in the server terminal. See [AUTH.md](./AUTH.md) for API payloads and limits.
+to the guest navbar. Development email codes appear in Mailpit at
+`http://localhost:8025`; LOG phone codes appear in the server terminal.
+See [AUTH.md](./AUTH.md) for API payloads and limits and [EMAIL.md](./EMAIL.md) for SMTP setup.
 
 Signed-in users can open **My account** (`/account`) to enable buying and selling
 on the same account and edit their separate profiles through SurveyJS. Contacts
@@ -84,10 +85,11 @@ OTP delivery and media processing run as BullMQ background jobs. Workers start
 with the application and use local Redis. See [JOBS.md](./JOBS.md) for setup,
 retries, processing status, and where to add future provider/media implementations.
 
-`src/user-interaction/configs/otp.config.json` configures separate `phone` and
-`email` providers. Both are initially `null`; LOG is the default delivery channel.
-Missing files, absent providers, or missing API URLs fall back to LOG. Malformed
-JSON or invalid configuration types/URLs still raise configuration errors.
+`src/user-interaction/configs/otp.config.json` configures the `phone` provider.
+Missing phone providers/APIs fall back to LOG. Email uses Mailpit in development
+and authenticated SMTP in production, configured by `EMAIL_PROVIDER` and `SMTP_*`
+environment variables. See [EMAIL.md](./EMAIL.md) and the credential-free `.env`
+examples. Malformed JSON or environment settings raise configuration errors.
 
 Inject the abstract `OtpFactory` exported by `UserInteractionModule`:
 
@@ -104,7 +106,8 @@ Use `create('email')` for email, or `create()` / `create('LOG')` for LOG regardl
 of the configured providers. `UserInteractionService.sendOtp(recipient)` detects
 the channel automatically: E.164 phone numbers (for example `+4917612345678`)
 select phone, email addresses select email, and an absent recipient selects LOG.
-If the matching provider or its API is absent, the factory returns a LOG sender.
+If the phone provider/API is absent, the factory returns a LOG sender. Email uses
+the configured SMTP transport; `EMAIL_PROVIDER=LOG` explicitly enables local logging.
 Invalid recipients return 400. Provider delivery failures are not silently retried
 through LOG. LOG delivery is blocked when `NODE_ENV=production`.
 
@@ -131,14 +134,15 @@ For future provider integrations, a channel setting can look like:
 ```
 
 Store API credentials in environment variables, not this JSON. Non-LOG phone
-configuration selects `SmsOtpHandler`; email selects `EmailOtpHandler`. Both are
-integration placeholders and fail the queued delivery job with 501 rather than
-claiming delivery. Provider-specific payloads, authentication and RCS/SMS routing must be
-implemented in those adapters. The standalone OTP endpoint is a delivery demo;
+configuration selects `SmsOtpHandler`, which remains a placeholder returning 501.
+Email selects the implemented SMTP `EmailOtpHandler`. Provider-specific SMS/RCS
+payloads, authentication and routing must still be implemented in the phone adapter.
+The standalone OTP endpoint is a delivery demo;
 registration uses `RegistrationService` to manage hashed codes, expiry, verification
 attempts, resend limits, and completion.
 
-`JsonOtpConfigSource` reads the JSON each time a sender is requested. To load
+`EnvironmentOtpConfigSource` combines phone JSON with email environment settings
+each time a sender is requested. To load
 settings from database records later, implement `OtpConfigSource.load()` and
 replace its provider binding in `UserInteractionModule`. The factory and its
 callers stay unchanged. The JSON is copied into `dist` by the Nest CLI.

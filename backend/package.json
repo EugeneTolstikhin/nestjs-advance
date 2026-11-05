@@ -26,7 +26,8 @@
     "test:views": "npm run build && node --test test/views.cjs",
     "test:auth:redis": "npm run build && node --test test/auth-redis.e2e.cjs",
     "test:media": "npm run build && node --test test/product-media.e2e.cjs",
-    "test:jobs": "npm run build && node --test test/background-jobs.e2e.cjs"
+    "test:jobs": "npm run build && node --test test/background-jobs.e2e.cjs",
+    "test:email": "npm run build && node --test test/email-delivery.e2e.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -43,6 +44,7 @@
     "class-validator": "^0.15.1",
     "hbs": "^4.4.0",
     "mongodb": "^7.8.0",
+    "nodemailer": "^10.3.1",
     "redis": "^6.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -61,6 +63,7 @@
     "@types/express": "^5.0.0",
     "@types/hbs": "^4.0.5",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
     "happy-dom": "^21.0.4",

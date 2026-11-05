@@ -136,12 +136,12 @@ contact receives its own six-digit code and has its own verification state.
 Email addresses are normalized to lowercase. Public registration cannot create
 admins or submit verification/permission fields.
 
-The current phone/email providers are unconfigured, so delivery uses LOG in
-local development. Look for `[DEV OTP] Email (...) code: ...` and/or
-`[DEV OTP] Phone (...) code: ...` in the server terminal. Enter those codes on the
-verification screen. Nothing is actually sent to a phone or email address until
-the external provider adapters are implemented. LOG is blocked in production;
-configured-but-unimplemented external adapters return 501 without creating users.
+Development emails are sent through SMTP to Mailpit: open `http://localhost:8025`
+to read the verification code. Unconfigured phone delivery uses LOG; look for
+`[DEV OTP] Phone (...) code: ...` in the server terminal. Production email uses
+SMTP settings from environment variables; see [EMAIL.md](./EMAIL.md). LOG and
+Mailpit email delivery are blocked in production. The phone provider adapter is
+still a placeholder, and queued delivery does not itself complete registration.
 
 A user document is inserted only after every supplied contact has been verified.
 Successful completion sets a 15-minute HttpOnly, SameSite=Lax session cookie
@@ -254,8 +254,9 @@ For phone login use `"channel": "phone"` and an E.164 contact such as
 `"+4917612345678"`. The endpoint returns `202` with `challengeId`, `expiresAt`
 and `resendAt`. Unknown/unverified contacts receive the same response, but no
 code is sent and they cannot log in. The selected contact must already be verified
-on a registered account. The existing OTP factory selects the provider, with LOG
-as the default for local development. Actual SMS/email adapters remain placeholders.
+on a registered account. The OTP factory selects Mailpit email in development,
+production SMTP from environment settings, and LOG for an unconfigured phone
+provider. The SMS adapter remains a placeholder. Delivery runs through BullMQ.
 
 Submit the code with `POST /auth/login/otp/verify`:
 

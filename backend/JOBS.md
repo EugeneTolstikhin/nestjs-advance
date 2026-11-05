@@ -28,8 +28,9 @@ restarts. Redis alone does not back up SQLite, MongoDB or media files.
 ## OTP delivery
 
 The existing `OtpFactory.create(channel).sendOtp(...)` interface now queues work.
-LOG remains the development default; the OTP appears in the server terminal when
-the worker processes the job. HTTP success means **queued**, not delivered.
+Development email uses Mailpit SMTP; phone defaults to LOG in the server terminal.
+Production email uses SMTP credentials from `.env`. See [EMAIL.md](./EMAIL.md).
+HTTP success means **queued**, not delivered.
 Registration/login still create and verify their own challenges, enforce rate
 limits, and check registered/verified contacts before sending login codes.
 
@@ -50,7 +51,8 @@ jobs fail). Request a fresh code after expiry or terminal delivery failure.
 If the app stops between saving a challenge and adding its job, the user must
 request a new code; challenge state and the BullMQ enqueue are not one transaction.
 
-To integrate SMS or email later:
+SMTP email is implemented in `EmailOtpHandler`, configured through `SMTP_*`
+environment variables. To integrate SMS or a future email API adapter:
 
 1. Implement `sendOtp(recipient, code, options)` in `SmsOtpHandler` or
    `EmailOtpHandler`. Use the supplied code; never generate a new code in an adapter.
@@ -63,8 +65,9 @@ To integrate SMS or email later:
 Delivery is at least once: a worker can stop after the provider accepts a message
 but before BullMQ records success. A stable provider idempotency key is needed to
 avoid duplicate sends; providers without that feature may deliver duplicates.
-No SMS/email SDK was added: the current adapters remain explicit placeholders,
-and provider failures never silently fall back to LOG.
+The phone adapter remains a placeholder. The SMTP adapter uses a stable Message-ID
+for retries, which does not guarantee SMTP deduplication. Provider failures never
+silently fall back to LOG.
 
 ## Media processing
 
