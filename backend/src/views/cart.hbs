@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}} | Nest Shop</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="stylesheet" href="/assets/styles.css?v=8">
+    <script src="/assets/cart.js?v=3" defer></script>
+</head>
+<body>
+    {{> navbar}}
+    <main class="cart-page">
+        <section class="intro">
+            <p class="eyebrow">Saved for you</p>
+            <h1>{{title}}</h1>
+            <p>Your cart follows your account, wherever you sign in.</p>
+        </section>
+        {{#if guest}}
+        <section class="empty-state" aria-labelledby="cart-gate-title">
+            <h2 id="cart-gate-title">Log in to use your shopping cart</h2>
+            <p>Guests cannot add items or view a shopping cart. Log in with a buyer account to get started.</p>
+            <div class="cart-links"><a class="nav-button nav-button-primary" href="/auth/login">Login</a><a class="nav-button nav-button-secondary" href="/auth/register">Register</a></div>
+        </section>
+        {{else}}{{#if restricted}}
+        <section class="empty-state" aria-labelledby="cart-gate-title">
+            <h2 id="cart-gate-title">A buyer profile is required</h2>
+            <p>Shopping carts are available to buyers. Add a buyer profile to your account to start shopping.</p>
+            <a class="nav-button nav-button-primary" href="/account">My account</a>
+        </section>
+        {{else}}
+        <section id="shopping-cart" aria-label="Your shopping cart">
+            <p id="cart-status" class="form-status" role="status" aria-live="polite"></p>
+            <div id="cart-empty" class="empty-state" {{#if items}}hidden{{/if}} tabindex="-1">
+                <h2>Your shopping cart is empty</h2>
+                <p>Find something you like and add it to your cart.</p>
+                <a class="nav-button nav-button-primary" href="/shop">Browse products</a>
+            </div>
+            <ul id="cart-items" class="cart-items" aria-label="Cart products">
+                {{#each items}}
+                <li class="cart-item" data-cart-item="{{productId}}">
+                    {{#if thumbnail}}<img class="cart-image" src="{{thumbnail}}" alt="" loading="lazy">{{else}}<div class="cart-image cart-placeholder" aria-hidden="true">N.</div>{{/if}}
+                    <div class="cart-item-details">
+                        <h2>{{name}}</h2>
+                        {{#if available}}<p>Unit price: {{unitPrice}}€</p><p class="price">Subtotal: {{lineTotal}}€</p>
+                        {{else}}<p class="form-error">This product is no longer available. You can remove it from your cart.</p>{{/if}}
+                        <div class="product-actions">
+                            <button type="button" class="nav-button nav-button-secondary" data-cart-action="decrease" aria-label="Remove one {{name}}">−</button>
+                            <span class="cart-quantity" aria-label="Quantity for {{name}}">{{quantity}}</span>
+                            <button type="button" class="nav-button nav-button-secondary" data-cart-action="increase" aria-label="Add one {{name}}" {{#unless canIncrease}}disabled data-unavailable="true"{{/unless}}>+</button>
+                            <button type="button" class="nav-button nav-button-danger" data-cart-action="remove" aria-label="Remove {{name}} from cart">Remove</button>
+                        </div>
+                    </div>
+                </li>
+                {{/each}}
+            </ul>
+            <section id="cart-summary" class="cart-summary" aria-label="Cart totals" {{#unless items}}hidden{{/unless}}>
+                <p id="cart-item-count">{{itemCount}} items</p>
+                <p class="cart-total">Total: <strong id="cart-total">{{total}}€</strong></p>
+                <p id="cart-unavailable" class="form-error" {{#unless unavailableCount}}hidden{{/unless}}>Unavailable products are not included in the total.</p>
+                <p class="auth-note">Prices reflect the current catalog. Your cart is saved to your account.</p>
+            </section>
+            <noscript><p role="alert">Enable JavaScript to change quantities or remove items.</p></noscript>
+        </section>
+        {{/if}}{{/if}}
+        <p class="auth-note"><a href="/shop">Continue shopping</a></p>
+    </main>
+    {{> footer}}
+</body>
+</html>

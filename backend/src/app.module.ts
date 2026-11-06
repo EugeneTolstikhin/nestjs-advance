@@ -10,9 +10,11 @@ import { UserInteractionModule } from './user-interaction/user-interaction.modul
 import { PiiInterceptor } from './interceptor/pii/pii.interceptor';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'node:path';
+import { CartModule } from './cart/cart.module';
 
 @Module({
   imports: [
+    CartModule,
     ProductsModule,
     AuthModule,
     UserInteractionModule,
@@ -36,6 +38,7 @@ export class AppModule implements NestModule {
     consumer.apply(LoggingMiddleware).forRoutes('*');
     consumer.apply(BrowserUserMiddleware).forRoutes(
       { path: 'shop', method: RequestMethod.GET },
+      { path: 'cart', method: RequestMethod.GET },
       { path: 'shop/new', method: RequestMethod.GET },
       { path: 'shop/:id/edit', method: RequestMethod.GET },
       { path: 'auth/register', method: RequestMethod.GET },

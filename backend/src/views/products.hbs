@@ -5,7 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{title}} | Nest Shop</title>
-    <link rel="stylesheet" href="/assets/styles.css">
+    <link rel="stylesheet" href="/assets/styles.css?v=7">
+    <script src="/assets/cart.js?v=3" defer></script>
     <script src="/assets/product-carousel.js" defer></script>
     {{#if canDeleteProducts}}<script src="/assets/products.js" defer></script>{{/if}}
 </head>
@@ -54,11 +55,13 @@
                 <div class="product-details">
                     <h2>{{name}}</h2>
                     <p>{{description}}</p>
-                    <span class="price">{{price}}</span>
+                    <span class="price">{{price}}€</span>
                     <div class="product-actions">
+                        <button class="nav-button nav-button-primary" type="button" data-add-to-cart="{{id}}" aria-label="Add {{name}} to cart">Add to cart</button>
                         {{#if @root.canEditProducts}}<a class="nav-button nav-button-secondary" href="/shop/{{id}}/edit" aria-label="Edit {{name}}">Edit</a>{{/if}}
                         {{#if @root.canDeleteProducts}}<button class="nav-button nav-button-danger" type="button" data-delete-product="{{id}}" aria-label="Delete {{name}}">Delete</button>{{/if}}
                     </div>
+                    <p class="cart-notice" data-cart-notice role="status" aria-live="polite"></p>
                 </div>
             </article>
             {{else}}

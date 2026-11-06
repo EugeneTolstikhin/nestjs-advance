@@ -80,6 +80,13 @@ Run `npm run test:views` to verify rendering with an isolated SQLite database an
 the built templates. Consider a separate `frontend/` only if you later introduce
 an independently built frontend application.
 
+## Shopping cart
+
+Buyers can add catalog products, change quantities and remove items at `/cart`.
+The account cart is saved in MongoDB and follows the user between devices and
+logins. Guests and seller-only accounts get an access message; empty carts show
+an empty state. See [CART.md](./CART.md) for API details, synchronization and tests.
+
 ## OTP sender factory
 
 OTP delivery and media processing run as BullMQ background jobs. Workers start

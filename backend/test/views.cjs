@@ -50,7 +50,7 @@ test('configured Handlebars engine renders the built empty products page', async
     assert.match(html, /<!DOCTYPE html>/);
     assert.match(html, /<title>Products \| Nest Shop<\/title>/);
     assert.match(html, /No products yet/);
-    assert.match(html, /href="\/assets\/styles.css"/);
+    assert.match(html, /href="\/assets\/styles\.css(?:\?[^\"]*)?"/);
     assert.doesNotMatch(html, /\{\{/);
 });
 
@@ -62,7 +62,7 @@ test('products from SQLite render with formatted prices and escaped user text', 
     assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
     assert.doesNotMatch(html, /<script>/);
     assert.match(html, /&lt;b&gt;Untrusted text&lt;\/b&gt;/);
-    assert.match(html, />12\.50<\/span>/);
+    assert.match(html, /class="price">12\.50(?:\s*€)?<\/span>/);
     assert.doesNotMatch(html, /No products yet/);
 });
 
