@@ -1,15 +1,18 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { JsonOtpConfigSource, OtpConfigSource, type OtpConfig } from './otp.config';
 import { emailConfig } from './email.config';
+import { smsConfig } from './sms.config';
 
-/** Phone settings remain in the dummy JSON; email transport comes from the environment. */
+/** Environment-selected local transports, with the JSON provider source retained for future SMS adapters. */
 @Injectable()
 export class EnvironmentOtpConfigSource extends OtpConfigSource implements OnModuleInit {
     constructor(private readonly json: JsonOtpConfigSource) { super(); }
-    onModuleInit() { emailConfig(); }
+    onModuleInit() { emailConfig(); smsConfig(); }
     async load(): Promise<OtpConfig> {
         const config = await this.json.load();
         const email = emailConfig();
-        return { ...config, email: { provider: email.provider, api: null, smtp: email.smtp } };
+        const sms = smsConfig();
+        return { phone: sms.provider === 'configured' ? config.phone : { provider: sms.provider, api: null, smspit: sms.smspit },
+            email: { provider: email.provider, api: null, smtp: email.smtp } };
     }
 }

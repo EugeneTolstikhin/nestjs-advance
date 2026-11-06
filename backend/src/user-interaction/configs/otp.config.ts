@@ -6,6 +6,7 @@ import { LogOtpHandler } from '../handlers/log-otp.handler';
 import { SmsOtpHandler } from '../handlers/sms-otp.handler';
 import { EmailOtpHandler } from '../handlers/email-otp.handler';
 import type { SmtpSettings } from './email.config';
+import type { SmspitSettings } from './sms.config';
 
 export type OtpChannel = 'LOG' | 'phone' | 'email';
 
@@ -13,6 +14,7 @@ export interface OtpProviderSettings {
     provider: string;
     api: { url: string; keyEnv?: string } | null;
     smtp?: SmtpSettings;
+    smspit?: SmspitSettings;
 }
 
 export interface OtpConfig {
@@ -106,6 +108,7 @@ export class ConfiguredOtpFactory extends OtpFactory {
         if (channel !== 'phone' && channel !== 'email') throw new Error('Unknown OTP channel');
         const settings = (await this.source.load())[channel];
         if (channel === 'email' && settings.smtp) return new EmailOtpHandler(settings);
+        if (channel === 'phone' && settings.smspit) return new SmsOtpHandler(settings);
         if (settings.provider.toUpperCase() === 'LOG' || !settings.api) return new LogOtpHandler();
         return channel === 'phone' ? new SmsOtpHandler(settings) : new EmailOtpHandler(settings);
     }

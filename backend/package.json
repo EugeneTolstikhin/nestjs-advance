@@ -27,7 +27,10 @@
     "test:auth:redis": "npm run build && node --test test/auth-redis.e2e.cjs",
     "test:media": "npm run build && node --test test/product-media.e2e.cjs",
     "test:jobs": "npm run build && node --test test/background-jobs.e2e.cjs",
-    "test:email": "npm run build && node --test test/email-delivery.e2e.cjs"
+    "test:email": "npm run build && node --test test/email-delivery.e2e.cjs",
+    "test:sms": "npm run build && node --test test/sms-delivery.e2e.cjs",
+    "sms:start": "docker compose -f compose.smspit.yml up -d",
+    "sms:stop": "docker compose -f compose.smspit.yml stop"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

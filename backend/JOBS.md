@@ -28,8 +28,9 @@ restarts. Redis alone does not back up SQLite, MongoDB or media files.
 ## OTP delivery
 
 The existing `OtpFactory.create(channel).sendOtp(...)` interface now queues work.
-Development email uses Mailpit SMTP; phone defaults to LOG in the server terminal.
+Development email uses Mailpit SMTP; phone defaults to the local SMSpit inbox.
 Production email uses SMTP credentials from `.env`. See [EMAIL.md](./EMAIL.md).
+See [SMS.md](./SMS.md) for the SMS simulator and configuration.
 HTTP success means **queued**, not delivered.
 Registration/login still create and verify their own challenges, enforce rate
 limits, and check registered/verified contacts before sending login codes.
@@ -65,7 +66,8 @@ environment variables. To integrate SMS or a future email API adapter:
 Delivery is at least once: a worker can stop after the provider accepts a message
 but before BullMQ records success. A stable provider idempotency key is needed to
 avoid duplicate sends; providers without that feature may deliver duplicates.
-The phone adapter remains a placeholder. The SMTP adapter uses a stable Message-ID
+The phone adapter implements SMSpit development capture; real provider adapters
+remain extension points. The SMTP adapter uses a stable Message-ID
 for retries, which does not guarantee SMTP deduplication. Provider failures never
 silently fall back to LOG.
 

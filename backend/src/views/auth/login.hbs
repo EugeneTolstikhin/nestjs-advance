@@ -21,6 +21,7 @@
         <p id="login-status" class="form-status" role="status" aria-live="polite"></p>
         <div id="login-form" class="auth-card"><p>Loading login form…</p></div>
         <div id="login-code-actions" hidden>
+            {{#if smspit}}<p class="dev-notice">Find development SMS codes in <a href="http://localhost:4301" target="_blank" rel="noopener">SMSpit</a>.</p>{{/if}}
             <p class="auth-note">Codes expire after five minutes. A new code replaces the previous one.</p>
             {{#if mailpit}}<p class="dev-notice">Find development email codes in <a href="http://localhost:8025" target="_blank" rel="noopener">Mailpit</a>. LOG codes appear in the server terminal.</p>
             {{else}}{{#if development}}<p class="dev-notice">For LOG delivery, look for your login code in the server terminal.</p>{{/if}}{{/if}}

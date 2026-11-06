@@ -1,0 +1,22 @@
+name: nestjs-advance-sms
+services:
+  smspit:
+    image: valentinesamuel/smspit@sha256:7b6cd6fbae0c181b6788b7fcefaea90a8237c481a6cc01ea52a41bc02beaff62
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4300:4300"
+      - "127.0.0.1:4301:4301"
+    environment:
+      NODE_ENV: production # SMSpit's embedded UI build; the Nest app remains in development.
+      DATABASE_URL: sqlite:/data/smspit.db
+      API_KEY: ${SMSPIT_API_KEY:-}
+      OTP_DETECTION: "true"
+      OTP_MIN_LENGTH: "6"
+      OTP_MAX_LENGTH: "6"
+      MAX_MESSAGES: "1000"
+      AUTO_DELETE_AFTER: 24h
+      PURGE_INTERVAL: 1h
+    volumes:
+      - smspit-data:/data
+volumes:
+  smspit-data:

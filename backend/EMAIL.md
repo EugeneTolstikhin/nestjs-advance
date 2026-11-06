@@ -1,8 +1,8 @@
 # Email delivery
 
 Email OTPs use Nodemailer SMTP inside the existing BullMQ worker. No additional
-worker command is needed: Nest starts the worker with the application. Phone OTPs
-still follow `otp.config.json` (LOG by default).
+worker command is needed: Nest starts the worker with the application. Development
+phone OTPs use SMSpit; see [SMS.md](./SMS.md).
 
 ## Development: Mailpit
 
@@ -87,7 +87,8 @@ delivery into a real recipient's inbox.
 
 The adapter sends text and HTML versions, bounds SMTP network timeouts, and does
 not log credentials, recipients or codes. Preview codes in Mailpit rather than the
-terminal for email; LOG phone codes still appear in the development terminal.
+terminal for email; development phone codes appear in SMSpit. Explicit LOG phone
+delivery still writes codes to the development terminal.
 
 ## Tests
 

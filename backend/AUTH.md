@@ -137,11 +137,12 @@ Email addresses are normalized to lowercase. Public registration cannot create
 admins or submit verification/permission fields.
 
 Development emails are sent through SMTP to Mailpit: open `http://localhost:8025`
-to read the verification code. Unconfigured phone delivery uses LOG; look for
+to read the verification code. Development phone codes appear in SMSpit at
+`http://localhost:4301`; see [SMS.md](./SMS.md). Explicit LOG delivery writes
 `[DEV OTP] Phone (...) code: ...` in the server terminal. Production email uses
 SMTP settings from environment variables; see [EMAIL.md](./EMAIL.md). LOG and
-Mailpit email delivery are blocked in production. The phone provider adapter is
-still a placeholder, and queued delivery does not itself complete registration.
+Mailpit email delivery and SMSpit SMS delivery are blocked in production. Real SMS
+provider adapters remain extension points; queued delivery does not itself complete registration.
 
 A user document is inserted only after every supplied contact has been verified.
 Successful completion sets a 15-minute HttpOnly, SameSite=Lax session cookie
@@ -255,8 +256,8 @@ For phone login use `"channel": "phone"` and an E.164 contact such as
 and `resendAt`. Unknown/unverified contacts receive the same response, but no
 code is sent and they cannot log in. The selected contact must already be verified
 on a registered account. The OTP factory selects Mailpit email in development,
-production SMTP from environment settings, and LOG for an unconfigured phone
-provider. The SMS adapter remains a placeholder. Delivery runs through BullMQ.
+production SMTP from environment settings, and SMSpit phone delivery in development.
+The production SMS adapter remains an extension point. Delivery runs through BullMQ.
 
 Submit the code with `POST /auth/login/otp/verify`:
 

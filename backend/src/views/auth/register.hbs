@@ -24,6 +24,7 @@
             <h2 id="verification-title">Confirm your contacts</h2>
             <p>Enter the six-digit code for each contact. Codes expire after five minutes.</p>
             {{#if mailpit}}<p class="dev-notice">Find development email codes in <a href="http://localhost:8025" target="_blank" rel="noopener">Mailpit</a>.</p>{{/if}}
+            {{#if smspit}}<p class="dev-notice">Find development SMS codes in <a href="http://localhost:4301" target="_blank" rel="noopener">SMSpit</a>.</p>{{/if}}
             <p id="otp-dev-notice" class="dev-notice" hidden>Development delivery is enabled. Read the verification codes in the server terminal.</p>
             <div id="verification-contacts"></div>
             <p class="auth-note">Registration expires after ten minutes. Refresh this page to start again.</p>

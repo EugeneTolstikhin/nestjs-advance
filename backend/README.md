@@ -30,8 +30,9 @@ page load their user context from the verified HttpOnly session cookie and Mongo
 Registration sets the cookie only after all supplied contacts pass OTP verification.
 Login sets the same cookie and redirects to `/shop`. Logout clears it and returns
 to the guest navbar. Development email codes appear in Mailpit at
-`http://localhost:8025`; LOG phone codes appear in the server terminal.
-See [AUTH.md](./AUTH.md) for API payloads and limits and [EMAIL.md](./EMAIL.md) for SMTP setup.
+`http://localhost:8025`; SMS codes appear in SMSpit at `http://localhost:4301`.
+See [AUTH.md](./AUTH.md) for API payloads and limits, [EMAIL.md](./EMAIL.md) for SMTP
+setup and [SMS.md](./SMS.md) for the local SMS inbox (`npm run sms:start`).
 
 Signed-in users can open **My account** (`/account`) to enable buying and selling
 on the same account and edit their separate profiles through SurveyJS. Contacts
@@ -86,7 +87,9 @@ with the application and use local Redis. See [JOBS.md](./JOBS.md) for setup,
 retries, processing status, and where to add future provider/media implementations.
 
 `src/user-interaction/configs/otp.config.json` configures the `phone` provider.
-Missing phone providers/APIs fall back to LOG. Email uses Mailpit in development
+Development phone delivery uses SMSpit, configured by `SMS_PROVIDER` and `SMSPIT_*`.
+`SMS_PROVIDER=configured` uses JSON phone settings; missing providers/APIs then
+fall back to LOG. Email uses Mailpit in development
 and authenticated SMTP in production, configured by `EMAIL_PROVIDER` and `SMTP_*`
 environment variables. See [EMAIL.md](./EMAIL.md) and the credential-free `.env`
 examples. Malformed JSON or environment settings raise configuration errors.
@@ -106,7 +109,8 @@ Use `create('email')` for email, or `create()` / `create('LOG')` for LOG regardl
 of the configured providers. `UserInteractionService.sendOtp(recipient)` detects
 the channel automatically: E.164 phone numbers (for example `+4917612345678`)
 select phone, email addresses select email, and an absent recipient selects LOG.
-If the phone provider/API is absent, the factory returns a LOG sender. Email uses
+With `SMS_PROVIDER=configured`, an absent phone provider/API returns a LOG sender.
+The development default is SMSpit. Email uses
 the configured SMTP transport; `EMAIL_PROVIDER=LOG` explicitly enables local logging.
 Invalid recipients return 400. Provider delivery failures are not silently retried
 through LOG. LOG delivery is blocked when `NODE_ENV=production`.
@@ -134,7 +138,8 @@ For future provider integrations, a channel setting can look like:
 ```
 
 Store API credentials in environment variables, not this JSON. Non-LOG phone
-configuration selects `SmsOtpHandler`, which remains a placeholder returning 501.
+configuration selects `SmsOtpHandler`. Its SMSpit branch is implemented; the
+external production-provider branch remains a placeholder returning 501.
 Email selects the implemented SMTP `EmailOtpHandler`. Provider-specific SMS/RCS
 payloads, authentication and routing must still be implemented in the phone adapter.
 The standalone OTP endpoint is a delivery demo;
