@@ -18,7 +18,7 @@
     function authNotice(target, code) {
         notice(target, code === 401 ? 'Log in with a buyer account to add items or view your shopping cart.'
             : 'A buyer profile is required to use the shopping cart.', true);
-        const link = node('a', code === 401 ? 'Login' : 'My account');
+        const link = node('a', code === 401 ? 'Login' : 'My account', 'nav-button nav-button-secondary');
         link.href = code === 401 ? '/auth/login' : '/account';
         target.append(document.createTextNode(' '), link);
     }
@@ -135,7 +135,7 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
             });
             notice(target, `${card.querySelector('h2').textContent} added to your cart.`);
-            const link = node('a', 'View cart'); link.href = '/cart'; target.append(document.createTextNode(' '), link);
+            card.querySelector('[data-view-cart]').hidden = false;
         } catch (error) { handleError(error, target); }
         finally { button.disabled = false; }
     }

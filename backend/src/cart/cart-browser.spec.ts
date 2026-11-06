@@ -23,7 +23,7 @@ describe('Shopping cart browser behavior', () => {
             <div id="cart-empty" tabindex="-1">Your shopping cart is empty</div>
             <ul id="cart-items"></ul><section id="cart-summary"><p id="cart-item-count"></p><span id="cart-total"></span>
             <p id="cart-unavailable"></p></section></section>`
-            : `<article class="product"><h2>Book</h2><button data-add-to-cart="${id}">Add to cart</button><p data-cart-notice role="status"></p></article>`;
+            : `<article class="product"><h2>Book</h2><div class="product-actions"><button data-add-to-cart="${id}">Add to cart</button><a href="/cart" data-view-cart hidden>View cart</a></div><p data-cart-notice role="status"></p></article>`;
         window.eval(script);
     }
     const click = (selector: string) => (window.document.querySelector(selector) as any).click();
@@ -38,7 +38,11 @@ describe('Shopping cart browser behavior', () => {
     it('adds from the catalog and links to the saved cart', async () => {
         fetchMock.mockResolvedValue(response(cart())); start(false); click('[data-add-to-cart]');
         await vi.waitFor(() => expect(window.document.querySelector('[data-cart-notice]')!.textContent).toContain('Book added'));
-        expect(window.document.querySelector('[data-cart-notice] a')!.getAttribute('href')).toBe('/cart');
+        const link = window.document.querySelector('[data-view-cart]') as any;
+        expect(link.getAttribute('href')).toBe('/cart');
+        expect(link.hidden).toBe(false);
+        expect(link.parentElement.className).toBe('product-actions');
+        expect(window.document.querySelector('[data-cart-notice] a')).toBeNull();
     });
     it('shows an empty cart and refreshes when another device has added an item', async () => {
         start(); await vi.waitFor(() => expect(window.document.getElementById('cart-summary')!.hidden).toBe(true));
