@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { clientScript } from '../../../test/client-script';
 import { Window } from 'happy-dom';
 
-const uploaderScript = readFileSync('src/public/media-uploader.js', 'utf8');
-const carouselScript = readFileSync('src/public/product-carousel.js', 'utf8');
+const uploaderScript = clientScript('media-uploader');
+const carouselScript = clientScript('product-carousel');
 const id = 'ded54f80-10bc-4dd6-a213-66e3e1b6dc42';
 
 describe('Bulk media UI and buyer carousel', () => {

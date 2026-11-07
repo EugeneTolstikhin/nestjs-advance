@@ -1,3 +1,4 @@
+import { clientScript } from '../../../test/client-script';
 import { readFileSync } from 'node:fs';
 import { Window } from 'happy-dom';
 import type { Model } from 'survey-core';
@@ -5,9 +6,9 @@ import { productForm } from './product-form';
 
 const core = readFileSync('node_modules/survey-core/survey.core.min.js', 'utf8');
 const ui = readFileSync('node_modules/survey-js-ui/survey-js-ui.min.js', 'utf8');
-const keyboard = readFileSync('src/public/survey-keyboard.js', 'utf8');
-const editorScript = readFileSync('src/public/product-editor.js', 'utf8');
-const deleteScript = readFileSync('src/public/products.js', 'utf8');
+const keyboard = clientScript('survey-keyboard');
+const editorScript = clientScript('product-editor');
+const deleteScript = clientScript('products');
 const id = 'aab55f70-d80e-4f7c-a582-04a64dc83199';
 
 describe('Product browser UI', () => {

@@ -258,7 +258,7 @@ test('the actual browser tus bundle and uploader send bulk files using the brows
         window.URL.createObjectURL = () => 'blob:preview'; window.URL.revokeObjectURL = () => {};
         window.document.body.innerHTML = '<section id="uploads"></section>';
         window.eval(await readFile('node_modules/tus-js-client/dist/tus.min.js', 'utf8'));
-        window.eval(await readFile('src/public/media-uploader.js', 'utf8'));
+        window.eval(await readFile('dist/public/media-uploader.js', 'utf8'));
         const uploader = await window.ProductMediaUploader.create(window.document.getElementById('uploads'));
         uploader.add([new window.File([image], 'browser.png', { type: 'image/png' }), new window.File([webm], 'browser.webm', { type: 'video/webm' })]);
         const deadline = Date.now() + 10000;

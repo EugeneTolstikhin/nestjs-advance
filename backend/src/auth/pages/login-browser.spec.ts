@@ -1,10 +1,11 @@
+import { clientScript } from '../../../test/client-script';
 import { readFileSync } from 'node:fs';
 import { Window } from 'happy-dom';
 import type { Model } from 'survey-core';
 import { loginCodeForm, loginForm } from './login-form';
 
-const script = readFileSync('src/public/login.js', 'utf8');
-const keyboard = readFileSync('src/public/survey-keyboard.js', 'utf8');
+const script = clientScript('login');
+const keyboard = clientScript('survey-keyboard');
 const core = readFileSync('node_modules/survey-core/survey.core.min.js', 'utf8');
 const ui = readFileSync('node_modules/survey-js-ui/survey-js-ui.min.js', 'utf8');
 

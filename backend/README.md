@@ -15,6 +15,28 @@ is needed. The JWT secret is loaded automatically from `backend/.env`. Run
 - `src/public/styles.css`: stylesheet, served at `/assets/styles.css`.
 - `src/views.config.ts`: Express view engine and static asset setup.
 
+### Browser TypeScript
+
+Edit browser behavior in `src/client/*.ts`. These scripts have a separate strict
+configuration (`tsconfig.client.json`) with DOM types and no Node.js globals.
+`src/public` contains static CSS and images; generated JavaScript and source maps
+go to `dist/public`. The existing Handlebars script URLs stay the same.
+
+- `npm run start:dev`: compile the browser scripts, then watch both browser and NestJS code.
+- `npm run typecheck:client`: check browser types without generating files.
+- `npm run build:client`: compile only the browser scripts.
+- `npm run build`: build NestJS and the browser scripts for production.
+
+Restart an existing development server once after this migration to activate both
+watchers. Development preserves the shared `dist` directory; production builds
+still clean it before building. Stop development watchers before running a full
+production build.
+
+The browser scripts remain classic scripts, using the existing local SurveyJS
+and tus bundles. `src/client/globals.d.ts` describes those globals using the
+installed packages' types. No frontend framework or bundler is required.
+Browser tests compile their TypeScript source before evaluating it in Happy DOM.
+
 The shop lists products from SQLite and shows an empty state until products are
 added. Buyer/seller registration is available at `/auth/register` through SurveyJS,
 with OTP verification before MongoDB persistence. SurveyJS login at `/auth/login`

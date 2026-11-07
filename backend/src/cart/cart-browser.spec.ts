@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { clientScript } from '../../test/client-script';
 import { Window } from 'happy-dom';
 
-const script = readFileSync('src/public/cart.js', 'utf8');
+const script = clientScript('cart');
 const id = '16927ce4-d7a2-4bca-925f-4b884d6087ac';
 const empty = { items: [], itemCount: 0, total: 0, unavailableCount: 0, maxQuantity: 99 };
 const cart = (quantity = 1, name = 'Book') => ({ ...empty, items: [{ productId: id, quantity, name, available: true,

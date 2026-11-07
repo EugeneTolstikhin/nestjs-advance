@@ -1,3 +1,4 @@
+import { clientScript } from '../../../test/client-script';
 import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { Window } from 'happy-dom';
@@ -5,8 +6,8 @@ import type { Model } from 'survey-core';
 import { accountForms } from './account-form';
 import { TypeOfUser } from '../auth.dto';
 
-const script = readFileSync('src/public/account.js', 'utf8');
-const keyboard = readFileSync('src/public/survey-keyboard.js', 'utf8');
+const script = clientScript('account');
+const keyboard = clientScript('survey-keyboard');
 const core = readFileSync('node_modules/survey-core/survey.core.min.js', 'utf8');
 const ui = readFileSync('node_modules/survey-js-ui/survey-js-ui.min.js', 'utf8');
 

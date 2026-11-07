@@ -1,3 +1,4 @@
+import { clientScript } from '../../../test/client-script';
 import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { Window } from 'happy-dom';
@@ -6,7 +7,7 @@ import { registrationForm } from './registration-form';
 
 const core = readFileSync('node_modules/survey-core/survey.core.min.js', 'utf8');
 const ui = readFileSync('node_modules/survey-js-ui/survey-js-ui.min.js', 'utf8');
-const keyboard = readFileSync('src/public/survey-keyboard.js', 'utf8');
+const keyboard = clientScript('survey-keyboard');
 
 describe('Survey keyboard navigation with browser bundles', () => {
     let window: Window;
