@@ -35,6 +35,9 @@ declare global {
     name: string;
     quantity: number;
     available: boolean;
+    stock: number;
+    stockMessage: string;
+    canIncrease: boolean;
     unitPrice: number | null;
     lineTotal: number | null;
     thumbnail?: string | null;

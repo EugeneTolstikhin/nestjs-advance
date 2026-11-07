@@ -17,7 +17,7 @@ export class CartPageController {
         return { title: 'Shopping cart', buyer: true, ...cart,
             total: cart.total.toFixed(2), items: cart.items.map(item => ({ ...item,
                 unitPrice: item.unitPrice?.toFixed(2), lineTotal: item.lineTotal?.toFixed(2),
-                canIncrease: item.available && item.quantity < cart.maxQuantity,
+                canIncrease: item.canIncrease,
             })) };
     }
 }

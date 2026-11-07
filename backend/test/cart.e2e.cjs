@@ -10,11 +10,11 @@ const { Test } = require('@nestjs/testing');
 const { JwtService } = require('@nestjs/jwt');
 const { getDataSourceToken } = require('@nestjs/typeorm');
 const request = require('supertest');
-const { AppModule } = require('../dist/app.module');
-const { Products } = require('../dist/products/products.entity');
-const { ProductMedia } = require('../dist/products/media/product-media.entity');
-const { AuthStateStore, MemoryAuthStateStore } = require('../dist/auth/storage/auth-state.store');
-const { configureViews } = require('../dist/views.config');
+const { AppModule } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/app.module`);
+const { Products } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/products.entity`);
+const { ProductMedia } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.entity`);
+const { AuthStateStore, MemoryAuthStateStore } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/auth/storage/auth-state.store`);
+const { configureViews } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/views.config`);
 
 const uri = process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017';
 assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(new URL(uri).hostname), 'Tests require local MongoDB');
@@ -40,7 +40,7 @@ beforeEach(async () => {
     buyer = await cookie(idA, ['buyer']); otherBuyer = await cookie(idB, ['buyer']); seller = await cookie(idS, ['seller']);
     mixed = await cookie(idM, ['buyer', 'seller']); admin = await cookie(idAdmin, ['admin']);
     [product, second] = await db.getRepository(Products).save([
-        { name: 'Book', description: 'First product', price: 0.1 }, { name: 'Bag', description: 'Second product', price: 1.25 },
+        { name: 'Book', description: 'First product', price: 0.1, stock: 1000 }, { name: 'Bag', description: 'Second product', price: 1.25, stock: 1000 },
     ]);
 });
 async function boot() {
@@ -156,4 +156,31 @@ void test('quantity and distinct-product limits hold atomically under competing 
     await add(second.id).expect(409); await add().expect(200);
     const bounded = (await as(api.get('/cart/data'))).body;
     assert.equal(bounded.items.length, 100); assert.equal(bounded.items.find(item => item.productId === product.id).quantity, 2);
+});
+
+void test('seller stock changes are authorized and concurrent cart additions respect current stock', async () => {
+    const path = `/products/${product.id}`;
+    await api.post(`${path}/restock`).send({ quantity: 1 }).expect(401);
+    await as(api.post(`${path}/restock`)).send({ quantity: 1 }).expect(403);
+    await as(api.post(`${path}/restock`), seller).set('Origin', 'https://other.example').send({ quantity: 1 }).expect(403);
+    await as(api.post(`${path}/restock`), seller).send({ quantity: 1.5 }).expect(400);
+    await as(api.patch(path), seller).send({ stock: 2, expectedStock: 1000 }).expect(200);
+    const additions = await Promise.all(Array.from({ length: 12 }, () => add()));
+    assert.equal(additions.filter(response => response.status === 200).length, 2);
+    assert.equal(additions.filter(response => response.status === 409).length, 10);
+    let cart = (await as(api.get('/cart/data')).expect(200)).body;
+    assert.equal(cart.items[0].quantity, 2); assert.equal(cart.items[0].canIncrease, false);
+    assert.equal((await db.getRepository(Products).findOneByOrFail({ id: product.id })).stock, 2);
+    await as(api.patch(path), seller).send({ stock: 0, expectedStock: 2 }).expect(200);
+    await add().expect(409);
+    cart = (await as(api.get('/cart/data')).expect(200)).body;
+    assert.equal(cart.items[0].available, false);
+    assert.match(cart.items[0].stockMessage, /Out of stock/);
+    const shop = await api.get('/shop').expect(200);
+    assert.match(shop.text, new RegExp(`data-add-to-cart="${product.id}"[^>]*disabled`));
+    await as(api.patch(path), seller).send({ stock: 20, expectedStock: 2 }).expect(409);
+    const restocked = await as(api.post(`${path}/restock`), seller).send({ quantity: 5 }).expect(201);
+    assert.equal(restocked.body.stock, 5);
+    cart = (await as(api.get('/cart/data')).expect(200)).body;
+    assert.equal(cart.items[0].canIncrease, true); assert.equal(cart.items[0].stock, 5);
 });

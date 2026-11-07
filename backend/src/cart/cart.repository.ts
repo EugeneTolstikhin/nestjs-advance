@@ -35,7 +35,7 @@ export class CartRepository implements OnModuleDestroy {
     }
     get(userId: string) { return this.run(collection => collection.findOne({ _id: userId })); }
 
-    add(userId: string, productId: string) {
+    add(userId: string, productId: string, maxQuantity = CART_MAX_QUANTITY) {
         return this.run(async collection => {
             try {
                 await collection.updateOne({ _id: userId }, { $setOnInsert: {
@@ -47,11 +47,11 @@ export class CartRepository implements OnModuleDestroy {
             }
             const path = `items.${productId}`;
             const cart = await collection.findOneAndUpdate({ _id: userId, $expr: { $and: [
-                { $lt: [{ $ifNull: [`$${path}`, 0] }, CART_MAX_QUANTITY] },
+                { $lt: [{ $ifNull: [`$${path}`, 0] }, maxQuantity] },
                 { $or: [ { $ne: [{ $type: `$${path}` }, 'missing'] },
                     { $lt: [{ $size: { $objectToArray: '$items' } }, CART_MAX_PRODUCTS] } ] },
             ] } }, { $inc: { [path]: 1 }, $set: { updatedAt: new Date() } }, { returnDocument: 'after' });
-            if (!cart) throw new ConflictException(`Cart limit reached: ${CART_MAX_PRODUCTS} products and ${CART_MAX_QUANTITY} of each product.`);
+            if (!cart) throw new ConflictException(`Cart limit reached: up to ${maxQuantity} units of this product, subject to stock, and ${CART_MAX_PRODUCTS} different products.`);
             return cart;
         });
     }

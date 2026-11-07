@@ -56,8 +56,9 @@
                     <h2>{{name}}</h2>
                     <p>{{description}}</p>
                     <span class="price">{{price}}€</span>
+                    <p class="product-stock">{{#if inStock}}{{stock}} in stock{{else}}Out of stock{{/if}}</p>
                     <div class="product-actions">
-                        <button class="nav-button nav-button-primary" type="button" data-add-to-cart="{{id}}" aria-label="Add {{name}} to cart">Add to cart</button>
+                        <button class="nav-button nav-button-primary" type="button" data-add-to-cart="{{id}}" aria-label="Add {{name}} to cart" {{#unless inStock}}disabled{{/unless}}>{{#if inStock}}Add to cart{{else}}Out of stock{{/if}}</button>
                         <a class="nav-button nav-button-secondary" href="/cart" data-view-cart hidden>View cart</a>
                         {{#if @root.canEditProducts}}<a class="nav-button nav-button-secondary" href="/shop/{{id}}/edit" aria-label="Edit {{name}}">Edit</a>{{/if}}
                         {{#if @root.canDeleteProducts}}<button class="nav-button nav-button-danger" type="button" data-delete-product="{{id}}" aria-label="Delete {{name}}">Delete</button>{{/if}}

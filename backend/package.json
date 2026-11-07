@@ -33,7 +33,8 @@
     "sms:stop": "docker compose -f compose.smspit.yml stop",
     "test:cart": "npm run build && node --test test/cart.e2e.cjs",
     "build:client": "tsc -p tsconfig.client.json",
-    "typecheck:client": "tsc -p tsconfig.client.json --noEmit"
+    "typecheck:client": "tsc -p tsconfig.client.json --noEmit",
+    "test:stock": "npm run build && node --test test/products-stock.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

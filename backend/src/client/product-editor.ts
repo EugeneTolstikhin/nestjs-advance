@@ -34,6 +34,7 @@
         name?: string;
         description?: string;
         price?: number;
+        stock?: number;
         media?: SavedMedia[];
       } = id
         ? await result(
@@ -53,11 +54,13 @@
         colorPalette: 'light',
         isPanelless: true,
       });
+      survey.getQuestionByName('restockQuantity').visible = !!id;
       if (id)
         survey.data = {
           name: product.name,
           description: product.description,
           price: product.price,
+          stock: product.stock ?? 0,
         };
       SurveyKeyboard.attach(
         container,
@@ -72,11 +75,30 @@
           description: string;
           price: number;
           mediaIds?: string[];
+          stock?: number;
+          expectedStock?: number;
+          restockQuantity?: number;
         } = {
           name: sender.data.name.trim(),
           description: sender.data.description.trim(),
           price: Number(sender.data.price),
         };
+        if (id) {
+          const stock = Number(sender.data.stock);
+          const restock = Number(sender.data.restockQuantity ?? 0);
+          if (stock !== (product.stock ?? 0)) {
+            data.stock = stock;
+            data.expectedStock = product.stock ?? 0;
+          }
+          if (restock > 0) data.restockQuantity = restock;
+          if (data.stock !== undefined && data.restockQuantity !== undefined) {
+            message(
+              'Correct the stock count or add a delivery, not both at once.',
+              true,
+            );
+            return;
+          }
+        } else data.stock = Number(sender.data.stock);
         try {
           if (uploader) data.mediaIds = uploader.ids();
         } catch (cause) {

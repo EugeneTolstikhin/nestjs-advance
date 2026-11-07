@@ -1,4 +1,5 @@
 import {
+    Check,
     Column,
     CreateDateColumn,
     Entity,
@@ -7,6 +8,7 @@ import {
 } from 'typeorm';
 
 @Entity({ name: 'products' })
+@Check('CHK_products_stock', "typeof(stock) = 'integer' AND stock >= 0 AND stock <= 2147483647")
 export class Products {
     // Response-only ordered media; metadata is persisted in product_media.
     media?: { id: string; kind: string; isVideo: boolean; name: string; size: number; position: number; url: string; poster?: string; width: number; height: number; duration: number }[];
@@ -33,6 +35,9 @@ export class Products {
         nullable: false
     })
     price: number;
+
+    @Column('integer', { default: 0 })
+    stock: number;
 
     @CreateDateColumn({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;

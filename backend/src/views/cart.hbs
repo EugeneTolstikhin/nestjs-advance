@@ -44,6 +44,7 @@
                         <h2>{{name}}</h2>
                         {{#if available}}<p>Unit price: {{unitPrice}}€</p><p class="price">Subtotal: {{lineTotal}}€</p>
                         {{else}}<p class="form-error">This product is no longer available. You can remove it from your cart.</p>{{/if}}
+                        <p class="cart-stock">{{stockMessage}}</p>
                         <div class="product-actions">
                             <button type="button" class="nav-button nav-button-secondary" data-cart-action="decrease" aria-label="Remove one {{name}}">−</button>
                             <span class="cart-quantity" aria-label="Quantity for {{name}}">{{quantity}}</span>

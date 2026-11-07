@@ -5,7 +5,7 @@ const script = clientScript('cart');
 const id = '16927ce4-d7a2-4bca-925f-4b884d6087ac';
 const empty = { items: [], itemCount: 0, total: 0, unavailableCount: 0, maxQuantity: 99 };
 const cart = (quantity = 1, name = 'Book') => ({ ...empty, items: [{ productId: id, quantity, name, available: true,
-    unitPrice: 0.1, lineTotal: quantity / 10 }], itemCount: quantity, total: quantity / 10 });
+    stock: 99, stockMessage: '99 in stock', canIncrease: quantity < 99, unitPrice: 0.1, lineTotal: quantity / 10 }], itemCount: quantity, total: quantity / 10 });
 
 describe('Shopping cart browser behavior', () => {
     let window: Window;
@@ -117,5 +117,14 @@ describe('Shopping cart browser behavior', () => {
         await vi.waitFor(() => expect(window.document.querySelectorAll('[data-cart-item]')).toHaveLength(0));
         expect(window.document.getElementById('cart-summary')!.hidden).toBe(true);
         expect(window.document.getElementById('cart-status')!.textContent).toContain('Log in');
+    });
+    it('disables increases at the limit and keeps keyboard focus on an available control', async () => {
+        fetchMock.mockResolvedValue(response(cart(98))); start();
+        await vi.waitFor(() => expect(window.document.querySelector('[data-cart-action="increase"]')).not.toBeNull());
+        const increase = window.document.querySelector('[data-cart-action="increase"]') as any;
+        increase.focus(); fetchMock.mockResolvedValue(response(cart(99))); increase.click();
+        await vi.waitFor(() => expect(window.document.querySelector('.cart-quantity')!.textContent).toBe('99'));
+        expect(increase.disabled).toBe(true);
+        expect(window.document.activeElement).toBe(window.document.querySelector('[data-cart-action="decrease"]'));
     });
 });

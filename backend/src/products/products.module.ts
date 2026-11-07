@@ -16,5 +16,6 @@ import { ProductEditorController } from './pages/product-editor.controller';
     imports: [AuthModule, AuthStorageModule, TypeOrmModule.forFeature([ProductEntity, ProductMedia])],
     controllers: [ProductMediaController, ProductsController, ProductsPageController, ProductEditorController],
     providers: [ProductsService, ProductMediaService, MediaOriginGuard],
+    exports: [ProductsService],
 })
 export class ProductsModule {}

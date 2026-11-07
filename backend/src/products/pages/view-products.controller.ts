@@ -20,6 +20,8 @@ export class ProductsPageController {
             products: products.map(product => ({
                 id: product.id,
                 name: product.name,
+                stock: product.stock,
+                inStock: product.stock > 0,
                 description: product.description,
                 media: product.media?.map((item, index) => ({ ...item, label: `${item.isVideo ? 'Video' : 'Photo'} ${index + 1}` })),
                 price: product.price.toFixed(2),

@@ -1,5 +1,5 @@
-const { ProductMedia } = require('../dist/products/media/product-media.entity');
-const { ProductMediaService } = require('../dist/products/media/product-media.service');
+const { ProductMedia } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.entity`);
+const { ProductMediaService } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.service`);
 const { after, before, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFile } = require('node:fs/promises');
@@ -7,11 +7,11 @@ const { join } = require('node:path');
 const { Test } = require('@nestjs/testing');
 const { DataSource } = require('typeorm');
 const { getDataSourceToken } = require('@nestjs/typeorm');
-const { AppModule } = require('../dist/app.module');
-const { Products } = require('../dist/products/products.entity');
-const { ProductsService } = require('../dist/products/products.service');
-const { ProductsPageController } = require('../dist/products/pages/view-products.controller');
-const { configureViews } = require('../dist/views.config');
+const { AppModule } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/app.module`);
+const { Products } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/products.entity`);
+const { ProductsService } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/products.service`);
+const { ProductsPageController } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/pages/view-products.controller`);
+const { configureViews } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/views.config`);
 
 let app;
 let page;
@@ -67,7 +67,7 @@ test('products from SQLite render with formatted prices and escaped user text', 
 });
 
 test('stylesheet is included in build output and the UI has its own route', async () => {
-    const css = await readFile(join(__dirname, '../dist/public/styles.css'), 'utf8');
+    const css = await readFile(join(__dirname, process.env.TEST_BUILD_DIR || '../dist', 'public/styles.css'), 'utf8');
     assert.match(css, /\.products/);
     assert.equal(Reflect.getMetadata('path', ProductsPageController), 'shop');
     assert.equal(app.getHttpAdapter().getInstance().get('view engine'), 'hbs');

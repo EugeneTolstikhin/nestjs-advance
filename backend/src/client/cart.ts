@@ -79,6 +79,7 @@
         item.name,
         item.thumbnail,
         item.available,
+        item.stockMessage,
       ]);
       const previous = rowViews.get(item.productId);
       if (
@@ -99,8 +100,7 @@
         const increase = row.querySelector<HTMLButtonElement>(
           '[data-cart-action="increase"]',
         )!;
-        const unavailable =
-          !item.available || item.quantity >= cart.maxQuantity;
+        const unavailable = !item.canIncrease;
         increase.disabled = unavailable;
         if (unavailable) increase.dataset.unavailable = 'true';
         else delete increase.dataset.unavailable;
@@ -133,6 +133,7 @@
             'form-error',
           ),
         );
+      details.append(node('p', item.stockMessage, 'cart-stock'));
       const actions = node('div', '', 'product-actions');
       const button = (action: string, text: string, label: string) => {
         const control = node(
@@ -143,10 +144,7 @@
         control.type = 'button';
         control.dataset.cartAction = action;
         control.setAttribute('aria-label', label);
-        if (
-          action === 'increase' &&
-          (!item.available || item.quantity >= cart.maxQuantity)
-        ) {
+        if (action === 'increase' && !item.canIncrease) {
           control.disabled = true;
           control.dataset.unavailable = 'true';
         }
@@ -306,8 +304,17 @@
       root.querySelectorAll('button').forEach((control) => {
         control.disabled = control.dataset.unavailable === 'true';
       });
-      if (restoreFocus && button.isConnected && !button.disabled)
-        button.focus();
+      if (restoreFocus) {
+        const row = list.querySelector<HTMLElement>(`[data-cart-item="${id}"]`);
+        const next =
+          row?.querySelector<HTMLButtonElement>(
+            `[data-cart-action="${restoreFocus.action}"]:not(:disabled)`,
+          ) ??
+          row?.querySelector<HTMLButtonElement>('button:not(:disabled)') ??
+          list.querySelector<HTMLButtonElement>('button:not(:disabled)');
+        if (next) next.focus();
+        else document.getElementById('cart-empty')!.focus();
+      }
     }
   }
   let timer: ReturnType<typeof setInterval> | undefined;

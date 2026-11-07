@@ -1,4 +1,5 @@
-import { ValidateIf, ArrayMaxSize, ArrayUnique, IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
+import { MAX_PRODUCT_STOCK } from './stock';
+import { IsInt, Max, ValidateIf, ArrayMaxSize, ArrayUnique, IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
 
 export class Product {
     @IsUUID('4', { message: 'ID must be a valid UUID v4' })
@@ -23,30 +24,11 @@ export class Product {
 
 export class CreateProductDto {
     @ValidateIf((_object, value) => value !== undefined)
-    @IsArray()
-    @ArrayMaxSize(100)
-    @ArrayUnique()
-    @IsUUID('4', { each: true })
-    mediaIds?: string[];
-
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(100)
-    name: string;
-
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(255)
-    description: string;
-
-    @IsNotEmpty()
-    @IsNumber({ allowNaN: false, allowInfinity: false, maxDecimalPlaces: 2 })
+    @IsInt()
     @Min(0)
-    price: number;
+    @Max(MAX_PRODUCT_STOCK)
+    stock?: number;
 
-}
-
-export class UpdateProductDto {
     @ValidateIf((_object, value) => value !== undefined)
     @IsArray()
     @ArrayMaxSize(100)
@@ -71,7 +53,59 @@ export class UpdateProductDto {
 
 }
 
-export class PatchProductDto {
+class StockChangesDto {
+    @ValidateIf((_object, value) => value !== undefined)
+    @IsInt()
+    @Min(0)
+    @Max(MAX_PRODUCT_STOCK)
+    stock?: number;
+
+    @ValidateIf((_object, value) => value !== undefined)
+    @IsInt()
+    @Min(0)
+    @Max(MAX_PRODUCT_STOCK)
+    expectedStock?: number;
+
+    @ValidateIf((_object, value) => value !== undefined)
+    @IsInt()
+    @Min(1)
+    @Max(MAX_PRODUCT_STOCK)
+    restockQuantity?: number;
+}
+
+export class RestockProductDto {
+    @IsInt()
+    @Min(1)
+    @Max(MAX_PRODUCT_STOCK)
+    quantity: number;
+}
+
+export class UpdateProductDto extends StockChangesDto {
+    @ValidateIf((_object, value) => value !== undefined)
+    @IsArray()
+    @ArrayMaxSize(100)
+    @ArrayUnique()
+    @IsUUID('4', { each: true })
+    mediaIds?: string[];
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(100)
+    name: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(255)
+    description: string;
+
+    @IsNotEmpty()
+    @IsNumber({ allowNaN: false, allowInfinity: false, maxDecimalPlaces: 2 })
+    @Min(0)
+    price: number;
+
+}
+
+export class PatchProductDto extends StockChangesDto {
     @ValidateIf((_object, value) => value !== undefined)
     @IsArray()
     @ArrayMaxSize(100)

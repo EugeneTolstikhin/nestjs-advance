@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
-import { CreateProductDto, DeleteProductDto, GetProductByIdDto, PatchProductDto, UpdateProductDto } from './products.dto';
+import { CreateProductDto, DeleteProductDto, GetProductByIdDto, PatchProductDto, UpdateProductDto, RestockProductDto } from './products.dto';
 
 const id = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -44,6 +44,20 @@ describe('ProductsController', () => {
         }
     });
 
+    it('accepts integer stock and rejects invalid counts on every write DTO', async () => {
+        for (const metatype of [CreateProductDto, UpdateProductDto, PatchProductDto]) {
+            const body = { name: 'Book', description: 'Stock', price: 1, stock: 0 };
+            await expect(validation.transform(body, { type: 'body', metatype })).resolves.toMatchObject({ stock: 0 });
+            for (const stock of [-1, 1.5, null, '5', 2147483648]) {
+                await expect(validation.transform({ ...body, stock }, { type: 'body', metatype })).rejects.toBeInstanceOf(BadRequestException);
+            }
+        }
+        await expect(validation.transform({ quantity: 5 }, { type: 'body', metatype: RestockProductDto })).resolves.toMatchObject({ quantity: 5 });
+        for (const quantity of [0, -1, 0.5, null, '5', 2147483648]) {
+            await expect(validation.transform({ quantity }, { type: 'body', metatype: RestockProductDto })).rejects.toBeInstanceOf(BadRequestException);
+        }
+    });
+
     it('rejects the removed image URL field on product writes', async () => {
         for (const metatype of [CreateProductDto, UpdateProductDto, PatchProductDto]) {
             await expect(validation.transform({ name: 'Book', description: 'Test', price: 10,
@@ -59,9 +73,9 @@ describe('ProductsController', () => {
         const controller = new ProductsController(service as unknown as ProductsService);
         const update = await validation.transform({ name: 'Book', description: 'NestJS', price: 10 },
             { type: 'body', metatype: UpdateProductDto });
-        controller.updateProduct({ id }, update, { user: { sub: 'seller', roles: [] } } as unknown as AuthRequest);
-        controller.patchProduct({ id }, { price: 0 }, { user: { sub: 'seller', roles: [] } } as unknown as AuthRequest);
-        controller.getProducts();
+        await controller.updateProduct({ id }, update, { user: { sub: 'seller', roles: [] } } as unknown as AuthRequest);
+        await controller.patchProduct({ id }, { price: 0 }, { user: { sub: 'seller', roles: [] } } as unknown as AuthRequest);
+        await controller.getProducts();
         expect(service.updateProduct).toHaveBeenCalledWith(id, update, 'seller');
         expect(service.patchProduct).toHaveBeenCalledWith(id, { price: 0 }, 'seller');
         expect(service.getProducts).toHaveBeenCalledWith(undefined, undefined);

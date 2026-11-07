@@ -1,7 +1,7 @@
 import type { AuthRequest } from '../auth/utils/auth-request';
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, Put, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { CreateProductDto, DeleteProductDto, GetProductByIdDto, UpdateProductDto, PatchProductDto } from './products.dto';
+import { RestockProductDto, CreateProductDto, DeleteProductDto, GetProductByIdDto, UpdateProductDto, PatchProductDto } from './products.dto';
 import { SessionAuthGuard } from '../auth/guard/session-auth.guard';
 import { SameOriginGuard } from '../auth/guard/same-origin.guard';
 import { Roles } from '../auth/guard/roles.decorator';
@@ -53,6 +53,13 @@ export class ProductsController {
         @Req() request: AuthRequest
     ): Promise<ProductEntity> {
         return this.productsService.patchProduct(params.id, dto, request.user!.sub);
+    }
+
+    @Post(':id/restock')
+    @UseGuards(SameOriginGuard, SessionAuthGuard)
+    @Roles(TypeOfUser.Seller)
+    restockProduct(@Param() params: GetProductByIdDto, @Body() dto: RestockProductDto): Promise<ProductEntity> {
+        return this.productsService.restockProduct(params.id, dto.quantity);
     }
 
     @Delete(':id')

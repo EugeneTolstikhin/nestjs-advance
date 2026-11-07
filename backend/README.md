@@ -3,6 +3,8 @@
 See [AUTH.md](./AUTH.md) for JWT setup, registration/login examples, product
 permissions, and authentication tests.
 
+See [STOCK.md](./STOCK.md) for seller stock counts, restocking and future checkout integration.
+
 ## Handlebars UI
 
 The HTML UI is rendered by NestJS inside `backend/`; no separate frontend project

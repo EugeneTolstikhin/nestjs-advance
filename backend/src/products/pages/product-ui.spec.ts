@@ -27,17 +27,17 @@ describe('Product browser UI', () => {
         globals.Survey.Model = class extends Original { constructor(schema: object) { super(schema); models.push(this); } };
         fetchMock = vi.fn().mockImplementation(async (path, options) => {
             if (path === '/shop/product-schema') return response(productForm());
-            if (!options?.method) return response({ id, name: 'Book', description: 'Existing description', price: 10 });
+            if (!options?.method) return response({ id, name: 'Book', description: 'Existing description', price: 10, stock: 5 });
             return response({ id });
         });
         window.fetch = fetchMock;
         redirect = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
     });
-    afterEach(() => {
+    afterEach(async () => {
         const container = window.document.getElementById('product-form');
         if (container && models.length) globals.SurveyUI.unmountComponentAtNode(container as unknown as HTMLElement);
         models.forEach(model => model.dispose()); vi.restoreAllMocks();
-        window.happyDOM.abort(); window.close();
+        await window.happyDOM.abort(); window.close();
     });
     async function editor(productId = '', media = false) {
         window.document.body.innerHTML = `<main id="product-page" data-product-id="${productId}"><p id="product-status"></p>${media ? '<section id="product-media"></section>' : ''}<div id="product-form"></div></main>`;
@@ -55,14 +55,14 @@ describe('Product browser UI', () => {
     it('creates a product with numeric price and only editable product fields', async () => {
         const model = await editor();
         expect(model.getQuestionByName('imageUrl')).toBeNull();
-        model.data = { name: '  New book  ', description: 'New description', price: 0 };
+        model.data = { name: '  New book  ', description: 'New description', price: 0, stock: 8 };
         await vi.waitFor(() => expect(window.document.querySelector('input[type="text"]')!.value).toBe('  New book  '));
         model.tryComplete(); model.tryComplete();
         await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
         const calls = fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST');
         expect(calls).toHaveLength(1);
         expect(calls[0][0]).toBe('/products');
-        expect(JSON.parse(calls[0][1].body)).toEqual({ name: 'New book', description: 'New description', price: 0 });
+        expect(JSON.parse(calls[0][1].body)).toEqual({ name: 'New book', description: 'New description', price: 0, stock: 8 });
         expect(calls[0][1].credentials).toBe('same-origin');
     });
     it('loads product values and saves edits through PUT without a body ID', async () => {
@@ -84,6 +84,30 @@ describe('Product browser UI', () => {
         }
         expect(fetchMock.mock.calls.filter(([, options]) => options?.method)).toHaveLength(0);
         expect(redirect).not.toHaveBeenCalled();
+    });
+    it('loads stock and sends the original count when correcting it', async () => {
+        const model = await editor(id);
+        expect(model.data.stock).toBe(5);
+        model.setValue('stock', 2); model.tryComplete();
+        await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
+        const call = fetchMock.mock.calls.find(([, options]) => options?.method === 'PUT');
+        expect(JSON.parse(call![1].body)).toMatchObject({ stock: 2, expectedStock: 5 });
+    });
+    it('sends a delivery as an increment, rather than overwriting the stock count', async () => {
+        const model = await editor(id);
+        model.setValue('restockQuantity', 10); model.tryComplete();
+        await vi.waitFor(() => expect(redirect).toHaveBeenCalledWith('/shop'));
+        const call = fetchMock.mock.calls.find(([, options]) => options?.method === 'PUT');
+        const body = JSON.parse(call![1].body);
+        expect(body.restockQuantity).toBe(10);
+        expect(body.stock).toBeUndefined(); expect(body.expectedStock).toBeUndefined();
+    });
+    it('rejects fractional and negative stock and conflicting correction/delivery inputs', async () => {
+        const model = await editor(id);
+        for (const stock of [-1, 1.5]) { model.setValue('stock', stock); model.tryComplete(); }
+        model.setValue('stock', 2); model.setValue('restockQuantity', 3); model.tryComplete();
+        expect(window.document.getElementById('product-status')!.textContent).toContain('not both');
+        expect(fetchMock.mock.calls.filter(([, options]) => options?.method)).toHaveLength(0);
     });
     it('keeps edits on a duplicate-name error and allows retrying', async () => {
         const model = await editor(id);

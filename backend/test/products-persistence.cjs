@@ -1,11 +1,11 @@
-const { ProductMedia } = require('../dist/products/media/product-media.entity');
-const { ProductMediaService } = require('../dist/products/media/product-media.service');
-const { InlineJobQueue } = require('../dist/jobs/job-queue');
+const { ProductMedia } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.entity`);
+const { ProductMediaService } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.service`);
+const { InlineJobQueue } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/jobs/job-queue`);
 const { afterEach, beforeEach, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { DataSource, QueryFailedError } = require('typeorm');
-const { Products } = require('../dist/products/products.entity');
-const { ProductsService } = require('../dist/products/products.service');
+const { Products } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/products.entity`);
+const { ProductsService } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/products.service`);
 
 let db;
 let repository;
