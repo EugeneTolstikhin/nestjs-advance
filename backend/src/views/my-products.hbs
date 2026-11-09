@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}} | Nest Shop</title>
+    <link rel="stylesheet" href="/assets/styles.css?v=10">
+    <script src="/assets/cart.js?v=5" defer></script>
+    <script src="/assets/product-carousel.js" defer></script>
+    {{#if canDeleteProducts}}<script src="/assets/products.js" defer></script>{{/if}}
+</head>
+<body>
+    {{> navbar}}
+    <main>
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow">Your seller workspace</p>
+            <h1 id="page-title">{{title}}</h1>
+            <p>Manage your listings, stock and media.</p>
+            {{#if canEditProducts}}<a class="nav-button nav-button-primary" href="/shop/new">Add product</a>{{/if}}
+            <a class="nav-button nav-button-secondary" href="/shop">Browse shop</a>
+        </section>
+        <section class="products" aria-label="Available products">
+            {{#each products}}
+            <article class="product">
+                {{#if media}}
+                <div class="product-carousel" data-carousel tabindex="0" role="group" aria-label="{{name}} photos and videos">
+                    <div class="carousel-slides">
+                        {{#each media}}
+                        <div class="carousel-slide" {{#unless @first}}hidden{{/unless}}>
+                            {{#if isVideo}}
+                            <video class="product-image" controls playsinline preload="none" poster="{{poster}}" aria-label="{{../name}} — {{label}}"><source src="{{url}}">Your browser cannot play this video.</video>
+                            {{else}}
+                            <img class="product-image" src="{{url}}" alt="{{../name}} — {{label}}" loading="lazy">
+                            {{/if}}
+                        </div>
+                        {{/each}}
+                    </div>
+                    <div class="carousel-navigation" hidden>
+                        <button class="nav-button nav-button-secondary" type="button" data-carousel-prev aria-label="Previous photo or video">←</button>
+                        <span data-carousel-count role="status" aria-live="polite"></span>
+                        <button class="nav-button nav-button-secondary" type="button" data-carousel-next aria-label="Next photo or video">→</button>
+                    </div>
+                    <div class="carousel-thumbnails" aria-label="Choose a photo or video" hidden>
+                        {{#each media}}
+                        <button type="button" data-carousel-thumb aria-label="Show {{label}}">
+                            <img src="{{#if isVideo}}{{poster}}{{else}}{{url}}{{/if}}" alt="" loading="lazy">
+                            {{#if isVideo}}<span>Video</span>{{/if}}
+                        </button>
+                        {{/each}}
+                    </div>
+                </div>
+                {{else}}
+                <div class="product-placeholder" aria-hidden="true">N.</div>
+                {{/if}}
+                <div class="product-details">
+                    <h2>{{name}}</h2>
+                    <p>{{description}}</p>
+                    <span class="price">{{price}}€</span>
+                    <p class="product-stock">{{#if inStock}}{{stock}} in stock{{else}}Out of stock{{/if}}</p>
+                    <div class="product-actions">
+                        <button class="nav-button nav-button-primary" type="button" data-add-to-cart="{{id}}" aria-label="Add {{name}} to cart" {{#unless inStock}}disabled{{/unless}}>{{#if inStock}}Add to cart{{else}}Out of stock{{/if}}</button>
+                        <a class="nav-button nav-button-secondary" href="/cart" data-view-cart hidden>View cart</a>
+                        {{#if @root.canEditProducts}}<a class="nav-button nav-button-secondary" href="/shop/{{id}}/edit" aria-label="Edit {{name}}">Edit</a>{{/if}}
+                        {{#if @root.canDeleteProducts}}<button class="nav-button nav-button-danger" type="button" data-delete-product="{{id}}" aria-label="Delete {{name}}">Delete</button>{{/if}}
+                    </div>
+                    <p class="cart-notice" data-cart-notice role="status" aria-live="polite"></p>
+                </div>
+            </article>
+            {{else}}
+            <div class="empty-state">
+                <h2>Your first listing starts here.</h2>
+                <p>You have no products yet. Add a product to start selling.</p>
+            </div>
+            {{/each}}
+        </section>
+        {{#if canDeleteProducts}}
+        <dialog id="delete-product-dialog" class="product-dialog" aria-labelledby="delete-product-title" aria-describedby="delete-product-description">
+            <h2 id="delete-product-title">Delete this product?</h2>
+            <p id="delete-product-description">“<span id="delete-product-name"></span>” will be permanently removed from the catalog.</p>
+            <p id="delete-product-status" class="form-status" role="status" aria-live="polite"></p>
+            <div class="product-actions">
+                <button id="cancel-delete-product" class="nav-button nav-button-secondary" type="button" autofocus>Keep product</button>
+                <button id="confirm-delete-product" class="nav-button nav-button-danger" type="button">Delete product</button>
+            </div>
+        </dialog>
+        {{/if}}
+    </main>
+    {{> footer}}
+</body>
+</html>

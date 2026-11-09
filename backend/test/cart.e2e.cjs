@@ -40,7 +40,7 @@ beforeEach(async () => {
     buyer = await cookie(idA, ['buyer']); otherBuyer = await cookie(idB, ['buyer']); seller = await cookie(idS, ['seller']);
     mixed = await cookie(idM, ['buyer', 'seller']); admin = await cookie(idAdmin, ['admin']);
     [product, second] = await db.getRepository(Products).save([
-        { name: 'Book', description: 'First product', price: 0.1, stock: 1000 }, { name: 'Bag', description: 'Second product', price: 1.25, stock: 1000 },
+        { sellerId: idS, name: 'Book', description: 'First product', price: 0.1, stock: 1000 }, { sellerId: idM, name: 'Bag', description: 'Second product', price: 1.25, stock: 1000 },
     ]);
 });
 async function boot() {

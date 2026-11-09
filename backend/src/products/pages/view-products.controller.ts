@@ -15,8 +15,8 @@ export class ProductsPageController {
         const roles: TypeOfUser[] = response?.locals.user?.roles ?? [];
         return {
             title: 'Products',
-            canEditProducts: roles.includes(TypeOfUser.Seller),
-            canDeleteProducts: roles.includes(TypeOfUser.Seller) || roles.includes(TypeOfUser.Admin),
+            canViewMyProducts: roles.includes(TypeOfUser.Seller),
+            canDeleteProducts: roles.includes(TypeOfUser.Admin),
             products: products.map(product => ({
                 id: product.id,
                 name: product.name,

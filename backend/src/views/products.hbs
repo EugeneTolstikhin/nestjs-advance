@@ -17,6 +17,7 @@
             <p class="eyebrow">Browse the collection</p>
             <h1 id="page-title">{{title}}</h1>
             <p>A little something worth discovering.</p>
+            {{#if canViewMyProducts}}<a class="nav-button nav-button-secondary" href="/my-shop">My products</a>{{/if}}
             {{#if canEditProducts}}<a class="nav-button nav-button-primary" href="/shop/new">Add product</a>{{/if}}
         </section>
         <section class="products" aria-label="Available products">

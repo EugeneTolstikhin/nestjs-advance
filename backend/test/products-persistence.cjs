@@ -1,3 +1,4 @@
+const sellerId = '550e8400-e29b-41d4-a716-446655440000';
 const { ProductMedia } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.entity`);
 const { ProductMediaService } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.service`);
 const { InlineJobQueue } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/jobs/job-queue`);
@@ -24,11 +25,11 @@ afterEach(async () => {
 });
 
 test('duplicate names return 409 and leave the original product unchanged', async () => {
-    const first = await service.createProduct({ name: 'Book', description: 'Original', price: 10 });
+    const first = await service.createProduct({ name: 'Book', description: 'Original', price: 10 }, sellerId);
     assert.ok(first.id);
     assert.ok(first.createdAt instanceof Date);
     await assert.rejects(
-        service.createProduct({ name: 'Book', description: 'Duplicate', price: 20 }),
+        service.createProduct({ name: 'Book', description: 'Duplicate', price: 20 }, sellerId),
         error => error.getStatus() === 409 && error.message === 'A product with this name already exists',
     );
     assert.equal(await repository.count(), 1);
@@ -38,26 +39,26 @@ test('duplicate names return 409 and leave the original product unchanged', asyn
 });
 
 test('different product names can both be saved', async () => {
-    await service.createProduct({ name: 'Book', description: 'First', price: 10 });
-    await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 });
+    await service.createProduct({ name: 'Book', description: 'First', price: 10 }, sellerId);
+    await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 }, sellerId);
     assert.equal(await repository.count(), 2);
 });
 
 test('other database failures are not reported as duplicate names', async () => {
     await assert.rejects(
-        service.createProduct({ name: 'Book', price: 10 }),
+        service.createProduct({ name: 'Book', price: 10 }, sellerId),
         error => error instanceof QueryFailedError && error.driverError.code === 'SQLITE_CONSTRAINT_NOTNULL',
     );
     assert.equal(await repository.count(), 0);
 });
 
 test('reads and deletes use database rows across service instances', async () => {
-    const first = await service.createProduct({ name: 'Book', description: 'First', price: 10 });
-    const second = await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 });
+    const first = await service.createProduct({ name: 'Book', description: 'First', price: 10 }, sellerId);
+    const second = await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 }, sellerId);
     const anotherService = new ProductsService(repository, new ProductMediaService(db, new InlineJobQueue()));
     assert.equal((await anotherService.getProducts()).length, 2);
     assert.equal((await anotherService.getProductById({ id: first.id })).name, 'Book');
-    const remaining = await anotherService.deleteProduct({ id: first.id });
+    const remaining = await anotherService.deleteProduct({ id: first.id }, sellerId);
     assert.deepEqual(remaining.map(product => product.id), [second.id]);
     assert.equal(await repository.findOneBy({ id: first.id }), null);
     assert.equal((await service.getProducts()).length, 1);
@@ -66,15 +67,15 @@ test('reads and deletes use database rows across service instances', async () =>
 test('PUT replaces editable fields and PATCH preserves omitted fields and accepts zero', async () => {
     const first = await service.createProduct({
         name: 'Book', description: 'Original', price: 10,
-    });
-    const patched = await service.patchProduct(first.id, { price: 0 });
+    }, sellerId);
+    const patched = await service.patchProduct(first.id, { price: 0 }, sellerId);
     assert.equal(patched.id, first.id);
     assert.equal(patched.name, 'Book');
     assert.deepEqual(patched.media, []);
     assert.equal((await repository.findOneByOrFail({ id: first.id })).price, 0);
     const replaced = await service.updateProduct(first.id, {
         name: 'Updated book', description: 'Replacement', price: 15,
-    });
+    }, sellerId);
     const stored = await repository.findOneByOrFail({ id: first.id });
     assert.equal(stored.name, replaced.name);
     assert.equal(stored.description, 'Replacement');
@@ -84,12 +85,12 @@ test('PUT replaces editable fields and PATCH preserves omitted fields and accept
 });
 
 test('duplicate names on PUT and PATCH return 409 without changing stored data', async () => {
-    await service.createProduct({ name: 'Book', description: 'First', price: 10 });
-    const second = await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 });
+    await service.createProduct({ name: 'Book', description: 'First', price: 10 }, sellerId);
+    const second = await service.createProduct({ name: 'Notebook', description: 'Second', price: 20 }, sellerId);
     await assert.rejects(service.updateProduct(second.id, {
         name: 'Book', description: 'Should not be saved', price: 99,
-    }), error => error.getStatus() === 409);
-    await assert.rejects(service.patchProduct(second.id, { name: 'Book', price: 99 }),
+    }, sellerId), error => error.getStatus() === 409);
+    await assert.rejects(service.patchProduct(second.id, { name: 'Book', price: 99 }, sellerId),
         error => error.getStatus() === 409);
     const stored = await repository.findOneByOrFail({ id: second.id });
     assert.equal(stored.name, 'Notebook');
@@ -102,9 +103,9 @@ test('missing rows return 404 and updates do not insert new rows', async () => {
     const id = '550e8400-e29b-41d4-a716-446655440000';
     for (const action of [
         () => service.getProductById({ id }),
-        () => service.updateProduct(id, { name: 'Book', description: 'Missing', price: 10 }),
-        () => service.patchProduct(id, { price: 10 }),
-        () => service.deleteProduct({ id }),
+        () => service.updateProduct(id, { name: 'Book', description: 'Missing', price: 10 }, sellerId),
+        () => service.patchProduct(id, { price: 10 }, sellerId),
+        () => service.deleteProduct({ id }, sellerId),
     ]) {
         await assert.rejects(action, error => error.getStatus() === 404);
     }
@@ -113,7 +114,7 @@ test('missing rows return 404 and updates do not insert new rows', async () => {
 
 test('pagination has stable ordering, supports limit alone, and rejects invalid values', async () => {
     for (let i = 0; i < 5; i++) {
-        await service.createProduct({ name: `Product ${i}`, description: 'Paging', price: i });
+        await service.createProduct({ name: `Product ${i}`, description: 'Paging', price: i }, sellerId);
     }
     const all = await service.getProducts();
     const ids = products => products.map(product => product.id);

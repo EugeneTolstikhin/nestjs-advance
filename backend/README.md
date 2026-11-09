@@ -5,6 +5,8 @@ permissions, and authentication tests.
 
 See [STOCK.md](./STOCK.md) for seller stock counts, restocking and future checkout integration.
 
+See [OWNERSHIP.md](./OWNERSHIP.md) for seller access rules and assigning legacy products.
+
 ## Handlebars UI
 
 The HTML UI is rendered by NestJS inside `backend/`; no separate frontend project

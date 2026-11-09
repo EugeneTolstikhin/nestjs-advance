@@ -38,6 +38,7 @@ export class AppModule implements NestModule {
     consumer.apply(LoggingMiddleware).forRoutes('*');
     consumer.apply(BrowserUserMiddleware).forRoutes(
       { path: 'shop', method: RequestMethod.GET },
+      { path: 'my-shop', method: RequestMethod.GET },
       { path: 'cart', method: RequestMethod.GET },
       { path: 'shop/new', method: RequestMethod.GET },
       { path: 'shop/:id/edit', method: RequestMethod.GET },

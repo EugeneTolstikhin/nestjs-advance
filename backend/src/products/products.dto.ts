@@ -20,6 +20,8 @@ export class Product {
     @Min(0)
     price: number;
 
+    @IsUUID('4', { message: 'Seller ID must be a valid UUID v4' })
+    sellerId: string;
 }
 
 export class CreateProductDto {
@@ -50,7 +52,6 @@ export class CreateProductDto {
     @IsNumber({ allowNaN: false, allowInfinity: false, maxDecimalPlaces: 2 })
     @Min(0)
     price: number;
-
 }
 
 class StockChangesDto {

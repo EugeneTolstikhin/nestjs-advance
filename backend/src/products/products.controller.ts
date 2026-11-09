@@ -1,5 +1,5 @@
 import type { AuthRequest } from '../auth/utils/auth-request';
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, Put, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, Put, Query, UseGuards, UsePipes, ValidationPipe, UnauthorizedException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { RestockProductDto, CreateProductDto, DeleteProductDto, GetProductByIdDto, UpdateProductDto, PatchProductDto } from './products.dto';
 import { SessionAuthGuard } from '../auth/guard/session-auth.guard';
@@ -21,6 +21,20 @@ export class ProductsController {
         return this.productsService.getProducts(limit, page);
     }
 
+    @Get('my')
+    @UseGuards(SameOriginGuard, SessionAuthGuard)
+    @Roles(TypeOfUser.Seller)
+    getMyProducts(
+        @Req() request: AuthRequest,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number
+    ): Promise<ProductEntity[]> {
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.productsService.getMyProducts(request.user.sub, limit, page);
+    }
+
     @Get(':id')
     getProductById(@Param() dto: GetProductByIdDto): Promise<ProductEntity> {
         return this.productsService.getProductById(dto);
@@ -30,7 +44,10 @@ export class ProductsController {
     @UseGuards(SameOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
     createProduct(@Body() dto: CreateProductDto, @Req() request: AuthRequest): Promise<ProductEntity> {
-        return this.productsService.createProduct(dto, request.user!.sub);
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.productsService.createProduct(dto, request.user.sub);
     }
 
     @Put(':id')
@@ -41,7 +58,10 @@ export class ProductsController {
         @Body() dto: UpdateProductDto,
         @Req() request: AuthRequest
     ): Promise<ProductEntity> {
-        return this.productsService.updateProduct(params.id, dto, request.user!.sub);
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.productsService.updateProduct(params.id, dto, request.user.sub);
     }
 
     @Patch(':id')
@@ -52,20 +72,38 @@ export class ProductsController {
         @Body() dto: PatchProductDto,
         @Req() request: AuthRequest
     ): Promise<ProductEntity> {
-        return this.productsService.patchProduct(params.id, dto, request.user!.sub);
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.productsService.patchProduct(params.id, dto, request.user.sub);
     }
 
     @Post(':id/restock')
     @UseGuards(SameOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
-    restockProduct(@Param() params: GetProductByIdDto, @Body() dto: RestockProductDto): Promise<ProductEntity> {
-        return this.productsService.restockProduct(params.id, dto.quantity);
+    restockProduct(
+        @Param() params: GetProductByIdDto,
+        @Body() dto: RestockProductDto,
+        @Req() request: AuthRequest
+    ): Promise<ProductEntity> {
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.productsService.restockProduct(params.id, dto.quantity, request.user.sub);
     }
 
     @Delete(':id')
     @UseGuards(SameOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller, TypeOfUser.Admin)
-    deleteProduct(@Param() dto: DeleteProductDto): Promise<ProductEntity[]> {
-        return this.productsService.deleteProduct(dto);
+    deleteProduct(
+        @Param() dto: DeleteProductDto,
+        @Req() request: AuthRequest
+    ): Promise<ProductEntity[]> {
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.productsService.deleteProduct(dto, request.user.sub, {
+            isAdmin: request.user.roles.includes(TypeOfUser.Admin),
+        });
     }
 }

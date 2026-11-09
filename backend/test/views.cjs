@@ -1,3 +1,4 @@
+const sellerId = '550e8400-e29b-41d4-a716-446655440000';
 const { ProductMedia } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.entity`);
 const { ProductMediaService } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.service`);
 const { after, before, test } = require('node:test');
@@ -57,7 +58,7 @@ test('configured Handlebars engine renders the built empty products page', async
 test('products from SQLite render with formatted prices and escaped user text', async () => {
     await service.createProduct({
         name: '<script>alert(1)</script>', description: '<b>Untrusted text</b>', price: 12.5,
-    });
+    }, sellerId);
     const html = await render(await page.getProductsPage());
     assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
     assert.doesNotMatch(html, /<script>/);

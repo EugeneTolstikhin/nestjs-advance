@@ -11,11 +11,28 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Products as ProductEntity } from './products.entity';
 import { ProductsPageController } from './pages/view-products.controller';
 import { ProductEditorController } from './pages/product-editor.controller';
+import { MyProductsPageController } from './pages/view-my-products.controller';
 
 @Module({
-    imports: [AuthModule, AuthStorageModule, TypeOrmModule.forFeature([ProductEntity, ProductMedia])],
-    controllers: [ProductMediaController, ProductsController, ProductsPageController, ProductEditorController],
-    providers: [ProductsService, ProductMediaService, MediaOriginGuard],
+    imports: [
+        AuthModule,
+        AuthStorageModule,
+        TypeOrmModule.forFeature([
+            ProductEntity,
+            ProductMedia
+        ])],
+    controllers: [
+        ProductMediaController,
+        ProductsController,
+        ProductsPageController,
+        ProductEditorController,
+        MyProductsPageController
+    ],
+    providers: [
+        ProductsService,
+        ProductMediaService,
+        MediaOriginGuard
+    ],
     exports: [ProductsService],
 })
 export class ProductsModule {}

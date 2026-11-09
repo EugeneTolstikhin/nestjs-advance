@@ -34,7 +34,9 @@
     "test:cart": "npm run build && node --test test/cart.e2e.cjs",
     "build:client": "tsc -p tsconfig.client.json",
     "typecheck:client": "tsc -p tsconfig.client.json --noEmit",
-    "test:stock": "npm run build && node --test test/products-stock.cjs"
+    "test:stock": "npm run build && node --test test/products-stock.cjs",
+    "products:owners": "node scripts/assign-product-owners.cjs",
+    "test:ownership": "npm run build && node --test test/product-ownership.cjs test/product-owner-migration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

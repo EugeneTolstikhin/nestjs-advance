@@ -3,6 +3,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from 'typeorm';
@@ -44,4 +45,9 @@ export class Products {
 
     @UpdateDateColumn({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
     updatedAt: Date;
+
+    // NULL is reserved for legacy products awaiting explicit ownership assignment.
+    @Index('IDX_products_sellerId')
+    @Column('uuid', { nullable: true })
+    sellerId: string | null;
 }

@@ -1,4 +1,19 @@
-import { All, Body, Controller, Delete, Get, HttpCode, Param, Post, Req, Res, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+    All,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    HttpCode,
+    Param,
+    Post,
+    Req,
+    Res,
+    UnauthorizedException,
+    UseGuards,
+    UsePipes,
+    ValidationPipe
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Response } from 'express';
 import { SessionAuthGuard } from '../../auth/guard/session-auth.guard';
@@ -26,30 +41,46 @@ export class ProductMediaController {
     @Roles(TypeOfUser.Seller)
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     async ticket(@Body() dto: UploadTicketDto, @Req() request: AuthRequest) {
-        await this.state.limit(`media:tickets:${request.user!.sub}`, 30, 3600_000);
-        return this.media.ticket(dto, request.user!.sub);
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        await this.state.limit(`media:tickets:${request.user.sub}`, 30, 3600_000);
+        return this.media.ticket(dto, request.user.sub);
     }
+
     @Get('tickets/:id')
     @UseGuards(SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
     @UsePipes(new ValidationPipe())
     status(@Param() dto: GetProductByIdDto, @Req() request: AuthRequest) {
-        return this.media.status(dto.id, request.user!.sub);
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.media.status(dto.id, request.user.sub);
     }
+
     @Delete('tickets/:id')
     @HttpCode(204)
     @UseGuards(MediaOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
     @UsePipes(new ValidationPipe())
     async discard(@Param() dto: GetProductByIdDto, @Req() request: AuthRequest) {
-        await this.media.discard(dto.id, request.user!.sub);
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        await this.media.discard(dto.id, request.user.sub);
     }
+
     @All(['uploads', 'uploads/*path'])
     @UseGuards(MediaOriginGuard, SessionAuthGuard)
     @Roles(TypeOfUser.Seller)
     upload(@Req() request: AuthRequest, @Res() response: Response) {
-        return this.media.handle(request, response, request.user!.sub);
+        if (!request.user) {
+            throw new UnauthorizedException('User not authenticated');
+        }
+        return this.media.handle(request, response, request.user.sub);
     }
+
     @Get(['files/:id', 'files/:id/poster'])
     @UsePipes(new ValidationPipe())
     async file(@Param() dto: GetProductByIdDto, @Req() request: AuthRequest, @Res() response: Response) {

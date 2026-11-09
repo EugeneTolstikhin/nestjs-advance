@@ -1,3 +1,4 @@
+const sellerId = '550e8400-e29b-41d4-a716-446655440000';
 const { afterEach, beforeEach, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { DataSource } = require('typeorm');
@@ -15,7 +16,7 @@ beforeEach(async () => {
     service = new ProductsService(repository, new ProductMediaService(db, new InlineJobQueue()));
 });
 afterEach(async () => { if (db?.isInitialized) await db.destroy(); });
-const product = (name, stock) => service.createProduct({ name, description: 'Test stock', price: 1, ...(stock === undefined ? {} : { stock }) });
+const product = (name, stock) => service.createProduct({ name, description: 'Test stock', price: 1, ...(stock === undefined ? {} : { stock }) }, sellerId);
 const stock = async id => (await repository.findOneByOrFail({ id })).stock;
 const purchase = items => service.withStockTransaction(manager => service.deductStock(items, manager));
 
@@ -33,22 +34,22 @@ test('database constraints reject negative, fractional, null and overflowing sto
 });
 test('edits preserve stock; corrections require the count that the seller saw', async () => {
     const a = await product('Book', 7);
-    await service.patchProduct(a.id, { price: 2 });
+    await service.patchProduct(a.id, { price: 2 }, sellerId);
     assert.equal(await stock(a.id), 7);
-    await service.updateProduct(a.id, { name: 'Book', description: 'Edited', price: 3, stock: 4, expectedStock: 7 });
+    await service.updateProduct(a.id, { name: 'Book', description: 'Edited', price: 3, stock: 4, expectedStock: 7 }, sellerId);
     assert.equal(await stock(a.id), 4);
-    await assert.rejects(service.patchProduct(a.id, { stock: 10, expectedStock: 7, name: 'Stale update' }), e => e.getStatus() === 409);
-    await assert.rejects(service.patchProduct(a.id, { stock: 10 }), e => e.getStatus() === 400);
+    await assert.rejects(service.patchProduct(a.id, { stock: 10, expectedStock: 7, name: 'Stale update' }, sellerId), e => e.getStatus() === 409);
+    await assert.rejects(service.patchProduct(a.id, { stock: 10 }, sellerId), e => e.getStatus() === 400);
     assert.equal(await stock(a.id), 4);
     assert.equal((await repository.findOneByOrFail({ id: a.id })).name, 'Book');
 });
 test('restocking adds to the latest count without lost increments and enforces the bound', async () => {
     const a = await product('Book', 0);
-    await Promise.all(Array.from({ length: 20 }, () => service.restockProduct(a.id, 1)));
+    await Promise.all(Array.from({ length: 20 }, () => service.restockProduct(a.id, 1, sellerId)));
     assert.equal(await stock(a.id), 20);
-    await service.patchProduct(a.id, { stock: 2147483647, expectedStock: 20 });
-    await assert.rejects(service.restockProduct(a.id, 1), e => e.getStatus() === 400);
-    await assert.rejects(service.patchProduct(a.id, { stock: 1, expectedStock: 2147483647, restockQuantity: 2 }), e => e.getStatus() === 400);
+    await service.patchProduct(a.id, { stock: 2147483647, expectedStock: 20 }, sellerId);
+    await assert.rejects(service.restockProduct(a.id, 1, sellerId), e => e.getStatus() === 400);
+    await assert.rejects(service.patchProduct(a.id, { stock: 1, expectedStock: 2147483647, restockQuantity: 2 }, sellerId), e => e.getStatus() === 400);
     assert.equal(await stock(a.id), 2147483647);
 });
 test('concurrent purchases cannot oversell, and ordinary edits do not restore consumed stock', async () => {
@@ -56,7 +57,7 @@ test('concurrent purchases cannot oversell, and ordinary edits do not restore co
     const attempts = await Promise.allSettled(Array.from({ length: 12 }, () => purchase([{ productId: a.id, quantity: 1 }])));
     assert.equal(attempts.filter(item => item.status === 'fulfilled').length, 3);
     assert.equal(await stock(a.id), 0);
-    await service.updateProduct(a.id, { name: 'Book', description: 'Edited', price: 2 });
+    await service.updateProduct(a.id, { name: 'Book', description: 'Edited', price: 2 }, sellerId);
     assert.equal(await stock(a.id), 0);
 });
 test('an insufficient line or failure to record an order rolls back every decrement', async () => {
@@ -84,5 +85,6 @@ test('development schema synchronization preserves legacy products and defaults 
     await db.query("INSERT INTO products (id, name, description, price) VALUES ('legacy', 'Old book', 'Existing data', 12)");
     await db.synchronize();
     const existing = await repository.findOneByOrFail({ id: 'legacy' });
+    assert.equal(existing.sellerId, null);
     assert.equal(existing.stock, 0); assert.equal(existing.price, 12); assert.equal(existing.name, 'Old book');
 });

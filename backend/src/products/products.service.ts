@@ -1,7 +1,13 @@
 import { MAX_PRODUCT_STOCK } from './stock';
 import { ProductMediaService } from './media/product-media.service';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { 
+import {
+    BadRequestException,
+    ConflictException,
+    Injectable,
+    NotFoundException,
+    UnauthorizedException
+} from '@nestjs/common';
+import {
     CreateProductDto,
     UpdateProductDto,
     DeleteProductDto,
@@ -19,6 +25,7 @@ export class ProductsService {
         private readonly productRepository: Repository<ProductEntity>,
         private readonly media: ProductMediaService
     ) {}
+
     async getProducts(limit?: number, page?: number): Promise<ProductEntity[]> {
         if ((limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) ||
             (page !== undefined && (!Number.isSafeInteger(page) || page < 1))) {
@@ -39,6 +46,28 @@ export class ProductsService {
         return this.media.decorate(products);
     }
 
+    async getMyProducts(sellerId: string, limit?: number, page?: number): Promise<ProductEntity[]> {
+        this.requireSellerId(sellerId);
+        if ((limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) ||
+            (page !== undefined && (!Number.isSafeInteger(page) || page < 1))) {
+            throw new BadRequestException('limit and page must be positive integers');
+        }
+        if (page !== undefined && limit === undefined) {
+            throw new BadRequestException('limit is required when page is provided');
+        }
+        const skip = limit === undefined ? undefined : ((page ?? 1) - 1) * limit;
+        if (skip !== undefined && !Number.isSafeInteger(skip)) {
+            throw new BadRequestException('Pagination offset is too large');
+        }
+        const products = await this.productRepository.find({
+            where: { sellerId },
+            order: { createdAt: 'ASC', id: 'ASC' },
+            take: limit,
+            skip,
+        });
+        return this.media.decorate(products);
+    }
+
     async getProductById({ id }: GetProductByIdDto): Promise<ProductEntity> {
         const product = await this.productRepository.findOneBy({ id });
         if (!product) {
@@ -47,26 +76,39 @@ export class ProductsService {
         return (await this.media.decorate([product]))[0];
     }
 
-    async createProduct(product: CreateProductDto, ownerId?: string): Promise<ProductEntity> {
+    async getOwnedProductById({ id }: GetProductByIdDto, sellerId: string): Promise<ProductEntity> {
+        this.requireSellerId(sellerId);
+        const product = await this.productRepository.findOneBy({ id, sellerId });
+        if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
+        return (await this.media.decorate([product]))[0];
+    }
+
+    private requireSellerId(sellerId: string) {
+        if (typeof sellerId !== 'string' || !sellerId.trim()) throw new UnauthorizedException('An authenticated account is required');
+    }
+
+    async createProduct(product: CreateProductDto, sellerId: string): Promise<ProductEntity> {
+        this.requireSellerId(sellerId);
         const productEntity = this.productRepository.create({
             name: product.name,
             description: product.description,
             price: product.price,
             stock: product.stock ?? 0,
+            sellerId: sellerId,
         });
-        return this.saveProduct(productEntity, product.mediaIds, ownerId);
+        return this.saveProduct(productEntity, product.mediaIds, sellerId);
     }
 
-    async updateProduct(id: string, updatedProduct: UpdateProductDto, ownerId?: string): Promise<ProductEntity> {
-        return this.saveChanges(id, updatedProduct, ownerId);
+    async updateProduct(id: string, updatedProduct: UpdateProductDto, sellerId: string): Promise<ProductEntity> {
+        return this.saveChanges(id, updatedProduct, sellerId);
     }
 
-    async patchProduct(id: string, updatedProduct: PatchProductDto, ownerId?: string): Promise<ProductEntity> {
-        return this.saveChanges(id, updatedProduct, ownerId);
+    async patchProduct(id: string, updatedProduct: PatchProductDto, sellerId: string): Promise<ProductEntity> {
+        return this.saveChanges(id, updatedProduct, sellerId);
     }
 
-    async restockProduct(id: string, quantity: number): Promise<ProductEntity> {
-        return this.saveChanges(id, { restockQuantity: quantity });
+    async restockProduct(id: string, quantity: number, sellerId: string): Promise<ProductEntity> {
+        return this.saveChanges(id, { restockQuantity: quantity }, sellerId);
     }
 
     // SQLite uses a shared connection: serialize transactions with product/media writes.
@@ -106,10 +148,14 @@ export class ProductsService {
         }
     }
 
-    private async saveChanges(id: string, changes: PatchProductDto, ownerId?: string): Promise<ProductEntity> {
+    private async saveChanges(id: string, changes: PatchProductDto, sellerId: string): Promise<ProductEntity> {
+        this.requireSellerId(sellerId);
         return this.saveProduct(async manager => {
             // Read within the transaction, rather than saving a stale entity with an old stock count.
-            const product = await manager.findOneBy(ProductEntity, { id });
+            const product = await manager.findOneBy(ProductEntity, {
+                id,
+                sellerId
+            });
             if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
             if (changes.stock !== undefined) {
                 this.validateStock(changes.stock);
@@ -132,12 +178,13 @@ export class ProductsService {
             product.description = changes.description ?? product.description;
             product.price = changes.price ?? product.price;
             return product;
-        }, changes.mediaIds, ownerId);
+        }, changes.mediaIds, sellerId);
     }
 
-    async deleteProduct({ id }: DeleteProductDto): Promise<ProductEntity[]> {
+    async deleteProduct({ id }: DeleteProductDto, sellerId: string, options: { isAdmin?: boolean } = {}): Promise<ProductEntity[]> {
+        this.requireSellerId(sellerId);
         const result = await this.media.exclusive(() => this.productRepository.manager.transaction(async manager => {
-            const deleted = await manager.delete(ProductEntity, { id });
+            const deleted = await manager.delete(ProductEntity, options.isAdmin ? { id } : { id, sellerId });
             if (deleted.affected) await this.media.detach(manager, id);
             return deleted;
         }));
