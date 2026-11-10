@@ -1,3 +1,4 @@
+import { reservedQuantities } from '../checkout/stock-availability';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -12,31 +13,34 @@ export class CartService {
         @InjectRepository(Products) private readonly products: Repository<Products>,
         @InjectRepository(ProductMedia) private readonly media: Repository<ProductMedia>) {}
 
-    async get(userId: string) { return this.view(await this.carts.get(userId)); }
+    async get(userId: string) { return this.view(await this.carts.get(userId), userId); }
     async add(userId: string, id: string) {
         const product = await this.products.findOneBy({ id });
         if (!product) throw new NotFoundException('This product is no longer available');
-        if (product.stock < 1) throw new ConflictException('This product is out of stock');
-        return this.view(await this.carts.add(userId, id, Math.min(product.stock, CART_MAX_QUANTITY)));
+        const held = (await reservedQuantities(this.products.manager, [id], Date.now(), undefined, userId)).get(id) ?? 0;
+        const availableStock = Math.max(0, product.stock - held);
+        if (availableStock < 1) throw new ConflictException('This product is out of stock');
+        return this.view(await this.carts.add(userId, id, Math.min(availableStock, CART_MAX_QUANTITY)), userId);
     }
     async change(userId: string, id: string, delta: -1 | 1) {
-        return delta === 1 ? this.add(userId, id) : this.view(await this.carts.decrease(userId, id));
+        return delta === 1 ? this.add(userId, id) : this.view(await this.carts.decrease(userId, id), userId);
     }
     async remove(userId: string, id: string) {
         await this.carts.remove(userId, id);
         return this.get(userId);
     }
-    private async view(cart: StoredCart | null) {
+    private async view(cart: StoredCart | null, buyerId: string) {
         const entries = Object.entries(cart?.items ?? {});
         const ids = entries.map(([id]) => id);
         const products = ids.length ? await this.products.findBy({ id: In(ids) }) : [];
         const media = ids.length ? await this.media.find({ where: { productId: In(ids), status: 'ready' }, order: { position: 'ASC' } }) : [];
+        const reserved = await reservedQuantities(this.products.manager, ids, Date.now(), undefined, buyerId);
         let totalCents = 0;
         const items = entries.map(([productId, quantity]) => {
             const product = products.find(item => item.id === productId);
             const cents = product ? Math.round(Number(product.price) * 100) : NaN;
             // Bound calculations so quantities and grand totals stay in safe integer cents.
-            const stock = product?.stock ?? 0;
+            const stock = Math.max(0, (product?.stock ?? 0) - (reserved.get(productId) ?? 0));
             const available = !!product && stock > 0 && Number.isSafeInteger(cents) && cents >= 0 &&
                 cents <= Math.floor(Number.MAX_SAFE_INTEGER / (CART_MAX_PRODUCTS * CART_MAX_QUANTITY));
             const cover = media.find(item => item.productId === productId);

@@ -1,3 +1,4 @@
+const { CheckoutSession, StockReservation } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/checkout/checkout-session.entity`);
 const sellerId = '550e8400-e29b-41d4-a716-446655440000';
 const { ProductMedia } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.entity`);
 const { ProductMediaService } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/products/media/product-media.service`);
@@ -14,7 +15,7 @@ let service;
 
 beforeEach(async () => {
     db = await new DataSource({
-        type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
+        type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia, CheckoutSession, StockReservation], synchronize: true,
     }).initialize();
     repository = db.getRepository(Products);
     service = new ProductsService(repository, new ProductMediaService(db, new InlineJobQueue()));

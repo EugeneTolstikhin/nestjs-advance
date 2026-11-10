@@ -11,6 +11,9 @@ import {
 @Entity({ name: 'products' })
 @Check('CHK_products_stock', "typeof(stock) = 'integer' AND stock >= 0 AND stock <= 2147483647")
 export class Products {
+    // Response-only availability; physical stock remains unchanged by reservations.
+    availableStock?: number;
+
     // Response-only ordered media; metadata is persisted in product_media.
     media?: { id: string; kind: string; isVideo: boolean; name: string; size: number; position: number; url: string; poster?: string; width: number; height: number; duration: number }[];
 

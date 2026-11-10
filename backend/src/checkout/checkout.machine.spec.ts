@@ -18,6 +18,7 @@ function send(actor: CheckoutActor, events: CheckoutEvent[]) {
 const toReview: CheckoutEvent[] = [
   { type: 'START' },
   { type: 'CART_VALIDATED' },
+  { type: 'STOCK_RESERVED' },
   { type: 'DELIVERY_ACCEPTED' },
   { type: 'SHIPPING_SELECTED' },
 ];
@@ -45,6 +46,7 @@ describe('Checkout state-machine skeleton', () => {
     expect(logs.map((log) => log.state)).toEqual([
       'idle',
       'validatingCart',
+      'reservingStock',
       'delivery',
       'shipping',
       'review',
@@ -94,6 +96,7 @@ describe('Checkout state-machine skeleton', () => {
       { type: 'SHIPPING_SELECTED' },
       { type: 'CONFIRM' },
       { type: 'PREPARATION_REJECTED', problem: 'price_changed' },
+      { type: 'RESERVATION_RELEASED' },
     ]);
     expect(actor.getSnapshot().value).toBe('needsCartChanges');
     expect(actor.getSnapshot().context.problem).toBe('price_changed');
@@ -132,7 +135,11 @@ describe('Checkout state-machine skeleton', () => {
   });
   it('allows safe cancellation before preparation but not an unconfirmed cancellation afterward', () => {
     const early = fixture().actor;
-    send(early, [...toReview, { type: 'CANCEL' }]);
+    send(early, [
+      ...toReview,
+      { type: 'CANCEL' },
+      { type: 'RESERVATION_RELEASED' },
+    ]);
     expect(early.getSnapshot().value).toBe('cancelled');
     const actor = fixture().actor;
     send(actor, [...toReview, { type: 'CONFIRM' }, { type: 'CANCEL' }]);
@@ -255,10 +262,11 @@ describe('Checkout state-machine skeleton', () => {
   it('logs only identifiers, step names and planned operations, without buyer details', () => {
     const { actor, logs } = fixture();
     pending(actor);
-    expect(logs.every((log) => log.mode === 'skeleton')).toBe(true);
+    expect(logs.every((log) => log.mode === 'model')).toBe(true);
     expect(JSON.stringify(logs)).not.toContain('private-buyer-id');
     expect(logs.find((log) => log.state === 'preparingPayment')).toMatchObject({
-      plannedOperation: 'createPendingOrderReserveStockAndPreparePayment',
+      plannedOperation:
+        'revalidateReservationCreatePendingOrderAndPreparePayment',
     });
   });
 });

@@ -38,7 +38,8 @@
     "products:owners": "node scripts/assign-product-owners.cjs",
     "test:ownership": "npm run build && node --test test/product-ownership.cjs test/product-owner-migration.cjs",
     "checkout:demo": "tsc -p tsconfig.checkout-demo.json && node .tmp/checkout-demo/checkout.demo.js",
-    "test:checkout": "vitest run src/checkout/checkout.machine.spec.ts"
+    "test:checkout": "vitest run src/checkout/",
+    "test:checkout:integration": "npm run build && node --test test/checkout-reservations.cjs test/checkout.e2e.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

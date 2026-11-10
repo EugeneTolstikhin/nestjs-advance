@@ -47,10 +47,15 @@ added/increased and is excluded from the total. This avoids silently losing a
 buyer's saved selection. Carts do not reserve stock or lock catalog prices.
 The maximum is 100 distinct products and 99 units per product, enforced in MongoDB
 in the same atomic operation as the change. Increases are also capped at the
-latest stock count read from SQLite. Out-of-stock products cannot be added;
+latest available stock count read from SQLite, excluding other buyers’ active
+checkout reservations. A buyer’s own held units remain available in their cart. Out-of-stock products cannot be added;
 saved lines show stock warnings if quantities become unavailable. These checks
 do not reserve inventory: final checkout must recheck and deduct stock within
 the order transaction. See [STOCK.md](./STOCK.md).
+
+The **Proceed to checkout** button opens cart review and explicit, expiring stock
+reservation. See [CHECKOUT.md](./CHECKOUT.md). Merely viewing or editing a cart
+still creates no stock reservation.
 
 ## API
 

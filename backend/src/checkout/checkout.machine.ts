@@ -12,7 +12,7 @@ export type CheckoutProblem =
   | 'seller_unassigned';
 export interface CheckoutContext extends CheckoutInput {
   paymentAttemptId: string | null;
-  releaseOutcome: 'retry' | 'cancelled' | 'expired' | null;
+  releaseOutcome: 'retry' | 'cancelled' | 'expired' | 'cartChanges' | null;
   problem: CheckoutProblem | null;
 }
 
@@ -22,6 +22,9 @@ export type CheckoutEvent =
   | { type: 'START' }
   | { type: 'CART_VALIDATED' }
   | { type: 'CART_REJECTED'; problem: CheckoutProblem }
+  | { type: 'STOCK_RESERVED' }
+  | { type: 'RESERVATION_REJECTED'; problem: CheckoutProblem }
+  | { type: 'RESERVATION_EXPIRED' }
   | { type: 'DELIVERY_ACCEPTED' }
   | { type: 'SHIPPING_SELECTED' }
   | { type: 'BACK' }
@@ -56,6 +59,8 @@ const checkout = setup({
       'attemptId' in event &&
       context.paymentAttemptId !== null &&
       event.attemptId === context.paymentAttemptId,
+    releaseForCartChanges: ({ context }) =>
+      context.releaseOutcome === 'cartChanges',
     releaseForRetry: ({ context }) => context.releaseOutcome === 'retry',
     releaseForExpiry: ({ context }) => context.releaseOutcome === 'expired',
   },
@@ -72,6 +77,7 @@ const checkout = setup({
       releaseOutcome: null,
       problem: null,
     }),
+    releaseToCartChanges: assign({ releaseOutcome: 'cartChanges' }),
     releaseToRetry: assign({ releaseOutcome: 'retry' }),
     releaseToCancel: assign({ releaseOutcome: 'cancelled' }),
     releaseToExpire: assign({ releaseOutcome: 'expired' }),
@@ -83,7 +89,7 @@ const checkout = setup({
 const step = (state: string, plannedOperation?: string) =>
   checkout.log(({ context, event }) => ({
     workflow: 'checkout',
-    mode: 'skeleton',
+    mode: 'model',
     checkoutId: context.checkoutId,
     state,
     event: event.type,
@@ -119,7 +125,7 @@ export const checkoutMachine = checkout.createMachine({
     validatingCart: {
       entry: ['resetAttempt', step('validatingCart', 'validateCart')],
       on: {
-        CART_VALIDATED: 'delivery',
+        CART_VALIDATED: 'reservingStock',
         CART_REJECTED: {
           target: 'needsCartChanges',
           actions: 'rememberProblem',
@@ -131,16 +137,31 @@ export const checkoutMachine = checkout.createMachine({
       entry: step('needsCartChanges'),
       on: { RETRY: 'validatingCart', CANCEL: 'cancelled' },
     },
+    reservingStock: {
+      entry: step('reservingStock', 'reserveValidatedCartStock'),
+      on: {
+        STOCK_RESERVED: 'delivery',
+        RESERVATION_REJECTED: {
+          target: 'needsCartChanges',
+          actions: 'rememberProblem',
+        },
+      },
+    },
     delivery: {
       entry: step('delivery', 'validateDeliveryAddress'),
-      on: { DELIVERY_ACCEPTED: 'shipping', CANCEL: 'cancelled' },
+      on: {
+        DELIVERY_ACCEPTED: 'shipping',
+        CANCEL: { target: 'releasingReservation', actions: 'releaseToCancel' },
+        RESERVATION_EXPIRED: 'expired',
+      },
     },
     shipping: {
       entry: step('shipping', 'quoteShippingBySeller'),
       on: {
         SHIPPING_SELECTED: 'review',
         BACK: 'delivery',
-        CANCEL: 'cancelled',
+        CANCEL: { target: 'releasingReservation', actions: 'releaseToCancel' },
+        RESERVATION_EXPIRED: 'expired',
       },
     },
     review: {
@@ -148,23 +169,24 @@ export const checkoutMachine = checkout.createMachine({
       on: {
         CONFIRM: 'preparingPayment',
         BACK: 'shipping',
-        CANCEL: 'cancelled',
+        CANCEL: { target: 'releasingReservation', actions: 'releaseToCancel' },
+        RESERVATION_EXPIRED: 'expired',
       },
     },
     preparingPayment: {
       entry: step(
         'preparingPayment',
-        'createPendingOrderReserveStockAndPreparePayment',
+        'revalidateReservationCreatePendingOrderAndPreparePayment',
       ),
       on: {
         PAYMENT_PREPARED: {
           target: 'paymentPending',
           actions: 'rememberAttempt',
         },
-        // Rejection means the SQL preparation rolled back; there is nothing to release.
+        // A cart reservation already exists: release it before returning to cart corrections.
         PREPARATION_REJECTED: {
-          target: 'needsCartChanges',
-          actions: 'rememberProblem',
+          target: 'releasingReservation',
+          actions: ['rememberProblem', 'releaseToCartChanges'],
         },
         PREPARATION_FAILED: 'preparationFailed',
         // A provider request may have succeeded despite a network failure.
@@ -232,6 +254,7 @@ export const checkoutMachine = checkout.createMachine({
       entry: step('releasingReservation', 'releaseReservationIfHeld'),
       on: {
         RESERVATION_RELEASED: [
+          { guard: 'releaseForCartChanges', target: 'needsCartChanges' },
           { guard: 'releaseForRetry', target: 'validatingCart' },
           { guard: 'releaseForExpiry', target: 'expired' },
           { target: 'cancelled' },

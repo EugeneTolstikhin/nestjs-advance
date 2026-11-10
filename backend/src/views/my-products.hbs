@@ -57,7 +57,7 @@
                     <h2>{{name}}</h2>
                     <p>{{description}}</p>
                     <span class="price">{{price}}€</span>
-                    <p class="product-stock">{{#if inStock}}{{stock}} in stock{{else}}Out of stock{{/if}}</p>
+                    <p class="product-stock">{{stock}} total units · {{availableStock}} available to buyers</p>
                     <div class="product-actions">
                         <button class="nav-button nav-button-primary" type="button" data-add-to-cart="{{id}}" aria-label="Add {{name}} to cart" {{#unless inStock}}disabled{{/unless}}>{{#if inStock}}Add to cart{{else}}Out of stock{{/if}}</button>
                         <a class="nav-button nav-button-secondary" href="/cart" data-view-cart hidden>View cart</a>

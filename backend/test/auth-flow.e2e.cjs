@@ -1,3 +1,4 @@
+const { CheckoutSession, StockReservation } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/checkout/checkout-session.entity`);
 const { ProductMedia } = require('../dist/products/media/product-media.entity');
 const { ProductMediaService } = require('../dist/products/media/product-media.service');
 const { after, afterEach, before, beforeEach, test } = require('node:test');
@@ -45,7 +46,7 @@ beforeEach(async () => {
     moduleRef = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(AuthStateStore).useFactory({ factory: () => new MemoryAuthStateStore() })
         .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({
-            type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
+            type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia, CheckoutSession, StockReservation], synchronize: true,
         }).initialize() })
         .overrideProvider(OtpFactory).useValue({ create: async () => ({ sendOtp: async (recipient, code) => {
             codes.set(recipient, code); return { message: 'Test delivery' };

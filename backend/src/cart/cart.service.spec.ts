@@ -5,7 +5,7 @@ describe('Cart pricing and catalog changes', () => {
     let carts: any, products: any, media: any;
     beforeEach(() => {
         carts = { get: vi.fn().mockResolvedValue({ items: { product: 3 } }), add: vi.fn() };
-        products = { findBy: vi.fn().mockResolvedValue([{ id: 'product', name: 'Book', price: 0.1, stock: 10 }]), findOneBy: vi.fn().mockResolvedValue({ id: 'product', stock: 10 }) };
+        products = { manager: { query: vi.fn().mockResolvedValue([]) }, findBy: vi.fn().mockResolvedValue([{ id: 'product', name: 'Book', price: 0.1, stock: 10 }]), findOneBy: vi.fn().mockResolvedValue({ id: 'product', stock: 10 }) };
         media = { find: vi.fn().mockResolvedValue([]) };
         service = new CartService(carts, products, media);
     });

@@ -1,3 +1,4 @@
+const { CheckoutSession, StockReservation } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/checkout/checkout-session.entity`);
 const { test, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
@@ -111,7 +112,7 @@ void test('media upload completes before processing, stays private, recovers aft
         const module = await Test.createTestingModule({ imports: [AppModule] })
             .overrideProvider(AuthStateStore).useFactory({ factory: () => new MemoryAuthStateStore() })
             .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({
-                type: 'better-sqlite3', database: join(directory, 'test.sqlite'), entities: [Products, ProductMedia], synchronize: true }).initialize() }).compile();
+                type: 'better-sqlite3', database: join(directory, 'test.sqlite'), entities: [Products, ProductMedia, CheckoutSession, StockReservation], synchronize: true }).initialize() }).compile();
         app = module.createNestApplication({ logger: false }); await app.init();
         return { api: request(app.getHttpServer()), token: await module.get(JwtService).signAsync({ sub: 'seller', roles: ['seller'] }) };
     }

@@ -19,6 +19,18 @@ The cart caps increases at current stock (and its existing 99-per-product limit)
 Saved carts are rechecked when displayed/refreshed; products can still be removed
 or decreased if availability changes. Cart additions do **not** reserve stock.
 
+## Checkout reservations
+
+Buyers can now explicitly reserve a validated cart from `/checkout` for 15 minutes.
+This leaves physical `stock` unchanged; `availableStock` excludes active holds.
+Expiry is checked using SQL timestamps, and cancellation releases held units.
+Sellers cannot set stock below active reservations or delete a reserved product.
+See [CHECKOUT.md](./CHECKOUT.md) for the current flow and migration.
+
+Future order finalization must consume its own reservation inside the same SQL
+transaction before calling `deductStock`. That method protects all still-active
+holds; it must not consume another checkout's reserved units.
+
 ## API
 
 Product writes and restocking retain the existing seller-only authorization and

@@ -4,7 +4,7 @@ import { checkoutMachine, type CheckoutEvent } from './checkout.machine';
 // Deterministic, synthetic server outcomes. No real buyer, payment or order exists.
 const prefix: CheckoutEvent[] = [
   { type: 'START' },
-  { type: 'CART_VALIDATED' },
+  { type: 'CART_VALIDATED' }, { type: 'STOCK_RESERVED' },
   { type: 'DELIVERY_ACCEPTED' },
   { type: 'SHIPPING_SELECTED' },
   { type: 'CONFIRM' },
@@ -21,7 +21,7 @@ const scenarios: Record<string, CheckoutEvent[]> = {
     { type: 'PAYMENT_FAILED', attemptId: 'demo-attempt-1' },
     { type: 'RETRY' },
     { type: 'RESERVATION_RELEASED' },
-    { type: 'CART_VALIDATED' },
+    { type: 'CART_VALIDATED' }, { type: 'STOCK_RESERVED' },
     { type: 'DELIVERY_ACCEPTED' },
     { type: 'SHIPPING_SELECTED' },
     { type: 'CONFIRM' },

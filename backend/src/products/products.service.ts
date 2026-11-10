@@ -1,3 +1,4 @@
+import { reservedQuantities } from '../checkout/stock-availability';
 import { MAX_PRODUCT_STOCK } from './stock';
 import { ProductMediaService } from './media/product-media.service';
 import {
@@ -43,7 +44,7 @@ export class ProductsService {
             take: limit,
             skip,
         });
-        return this.media.decorate(products);
+        return this.decorateAvailability(products);
     }
 
     async getMyProducts(sellerId: string, limit?: number, page?: number): Promise<ProductEntity[]> {
@@ -65,7 +66,7 @@ export class ProductsService {
             take: limit,
             skip,
         });
-        return this.media.decorate(products);
+        return this.decorateAvailability(products);
     }
 
     async getProductById({ id }: GetProductByIdDto): Promise<ProductEntity> {
@@ -73,14 +74,20 @@ export class ProductsService {
         if (!product) {
             throw new NotFoundException(`Product with ID ${id} not found`);
         }
-        return (await this.media.decorate([product]))[0];
+        return (await this.decorateAvailability([product]))[0];
     }
 
     async getOwnedProductById({ id }: GetProductByIdDto, sellerId: string): Promise<ProductEntity> {
         this.requireSellerId(sellerId);
         const product = await this.productRepository.findOneBy({ id, sellerId });
         if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
-        return (await this.media.decorate([product]))[0];
+        return (await this.decorateAvailability([product]))[0];
+    }
+
+    private async decorateAvailability(products: ProductEntity[]) {
+        const reserved = await reservedQuantities(this.productRepository.manager, products.map(product => product.id));
+        for (const product of products) product.availableStock = Math.max(0, product.stock - (reserved.get(product.id) ?? 0));
+        return this.media.decorate(products);
     }
 
     private requireSellerId(sellerId: string) {
@@ -132,10 +139,11 @@ export class ProductsService {
             this.validateStock(quantity, 1);
             totals.set(item.productId, quantity);
         }
+        const reserved = await reservedQuantities(manager, [...totals.keys()]);
         for (const [id, quantity] of totals) {
             const result = await manager.createQueryBuilder().update(ProductEntity)
                 .set({ stock: () => 'stock - :quantity' })
-                .where('id = :id AND stock >= :quantity', { id, quantity }).execute();
+                .where('id = :id AND stock >= :minimum', { id, quantity, minimum: quantity + (reserved.get(id) ?? 0) }).execute();
             if (result.affected !== 1) {
                 throw new ConflictException('A product is missing or has insufficient stock. Refresh your cart.');
             }
@@ -165,6 +173,8 @@ export class ProductsService {
                 if (product.stock !== changes.expectedStock) {
                     throw new ConflictException('Stock changed since you opened this page. Reload before correcting the stock count.');
                 }
+                const held = (await reservedQuantities(manager, [id])).get(id) ?? 0;
+                if (changes.stock < held) throw new ConflictException(`Cannot set stock below ${held} currently reserved units`);
                 product.stock = changes.stock;
             } else if (changes.expectedStock !== undefined) {
                 throw new BadRequestException('expectedStock requires a new stock count');
@@ -184,6 +194,9 @@ export class ProductsService {
     async deleteProduct({ id }: DeleteProductDto, sellerId: string, options: { isAdmin?: boolean } = {}): Promise<ProductEntity[]> {
         this.requireSellerId(sellerId);
         const result = await this.media.exclusive(() => this.productRepository.manager.transaction(async manager => {
+            const owned = await manager.findOneBy(ProductEntity, options.isAdmin ? { id } : { id, sellerId });
+            if (!owned) throw new NotFoundException(`Product with ID ${id} not found`);
+            if (((await reservedQuantities(manager, [id])).get(id) ?? 0) > 0) throw new ConflictException('This product has active checkout reservations. Try again after they expire or are released.');
             const deleted = await manager.delete(ProductEntity, options.isAdmin ? { id } : { id, sellerId });
             if (deleted.affected) await this.media.detach(manager, id);
             return deleted;

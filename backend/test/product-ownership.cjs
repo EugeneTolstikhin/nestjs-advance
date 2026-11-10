@@ -1,3 +1,4 @@
+const { CheckoutSession, StockReservation } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/checkout/checkout-session.entity`);
 process.env.JOBS_DRIVER = 'inline';
 process.env.JWT_SECRET = 'ownership-test-secret-at-least-32-characters';
 const { before, after, beforeEach, test } = require('node:test');
@@ -37,7 +38,7 @@ before(async () => {
         .overrideProvider(UsersRepository).useValue({ findById: async id => accounts.find(user => user._id === id) })
         .overrideProvider(AuthStateStore).useValue(new MemoryAuthStateStore())
         .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({
-            type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia], synchronize: true,
+            type: 'better-sqlite3', database: ':memory:', entities: [Products, ProductMedia, CheckoutSession, StockReservation], synchronize: true,
         }).initialize() }).compile();
     app = module.createNestApplication({ logger: false });
     await configureViews(app); await app.init(); await app.listen(0, '127.0.0.1');

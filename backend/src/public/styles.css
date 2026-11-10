@@ -163,3 +163,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
     .cart-image { width: 90px; height: 90px; }
     .cart-item-details { flex-basis: 180px; }
 }
+
+.checkout-steps { display: flex; flex-wrap: wrap; gap: 12px 24px; list-style: none; padding: 0; color: #62695f; }
+.checkout-steps [aria-current="step"] { color: #3b5330; font-weight: 700; }
+.checkout-panel { padding: 24px; margin: 20px 0; border: 1px solid #dddcd4; border-radius: 10px; background: #fff; }
+.checkout-items { list-style: none; padding: 0; }
+.checkout-items li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; border-bottom: 1px solid #eee; padding: 16px 0; overflow-wrap: anywhere; }

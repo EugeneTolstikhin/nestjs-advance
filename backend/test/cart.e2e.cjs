@@ -1,3 +1,4 @@
+const { CheckoutSession, StockReservation } = require(`${process.env.TEST_BUILD_DIR || '../dist'}/checkout/checkout-session.entity`);
 const { before, beforeEach, afterEach, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
@@ -47,7 +48,7 @@ async function boot() {
     const module = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(AuthStateStore).useFactory({ factory: () => new MemoryAuthStateStore() })
         .overrideProvider(getDataSourceToken()).useFactory({ factory: () => new DataSource({ type: 'better-sqlite3',
-            database: join(directory, 'test.sqlite'), entities: [Products, ProductMedia], synchronize: true }).initialize() }).compile();
+            database: join(directory, 'test.sqlite'), entities: [Products, ProductMedia, CheckoutSession, StockReservation], synchronize: true }).initialize() }).compile();
     app = module.createNestApplication({ logger: false }); await configureViews(app); await app.init();
     await app.listen(0, '127.0.0.1');
     api = request(app.getHttpServer()); db = module.get(DataSource); jwt = module.get(JwtService);

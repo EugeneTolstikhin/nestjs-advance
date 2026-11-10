@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}} | Nest Shop</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="stylesheet" href="/assets/styles.css?v=11">
+    <script src="/assets/checkout.js" defer></script>
+</head>
+<body>
+    {{> navbar}}
+    <main class="cart-page" id="checkout-page">
+        <section class="intro">
+            <p class="eyebrow">Your next step</p>
+            <h1>Checkout</h1>
+            <p>Review your items, then reserve them while you prepare to order.</p>
+        </section>
+        <ol class="checkout-steps" aria-label="Checkout progress">
+            <li id="checkout-review-step" aria-current="step">1. Review cart</li>
+            <li id="checkout-reserve-step">2. Reserve items</li>
+            <li>3. Delivery and payment — coming next</li>
+        </ol>
+        <p id="checkout-status" class="form-status" role="status" aria-live="polite">Loading your cart…</p>
+        <ul id="checkout-issues" tabindex="-1" class="form-error" aria-label="Items needing attention" hidden></ul>
+        <section id="checkout-summary" class="checkout-panel" aria-labelledby="checkout-summary-title" hidden>
+            <h2 id="checkout-summary-title" tabindex="-1">Review your items</h2>
+            <ul id="checkout-items" class="checkout-items"></ul>
+            <p class="cart-total">Items subtotal: <strong id="checkout-total"></strong></p>
+            <p class="auth-note">Delivery costs and any further charges will be shown before payment in a later step. No payment is taken here.</p>
+            <button type="button" id="checkout-reserve" class="nav-button nav-button-primary" hidden>Reserve items for 15 minutes</button>
+        </section>
+        <section id="checkout-reservation" class="checkout-panel" aria-labelledby="checkout-reservation-title" hidden>
+            <h2 id="checkout-reservation-title" tabindex="-1">Your items are reserved</h2>
+            <p>Time remaining: <strong id="checkout-countdown" role="timer" aria-live="off"></strong></p>
+            <p>You can return on another device using the same account. Changes to your cart will not change this reservation.</p>
+            <p class="auth-note">Delivery details and payment are coming in the next step. This reservation is not an order, and you have not been charged.</p>
+            <button type="button" id="checkout-release" class="nav-button nav-button-secondary">Release reservation</button>
+        </section>
+        <div class="product-actions">
+            <button type="button" id="checkout-refresh" class="nav-button nav-button-secondary">Refresh availability</button>
+            <a class="nav-button nav-button-secondary" href="/cart">Back to cart</a>
+        </div>
+        <noscript><p role="alert">Enable JavaScript to review your cart and reserve items.</p></noscript>
+    </main>
+    {{> footer}}
+</body>
+</html>
