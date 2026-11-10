@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src/checkout",
+    "outDir": "./.tmp/checkout-demo",
+    "declaration": false,
+    "incremental": false,
+    "types": ["node"]
+  },
+  "include": ["src/checkout/**/*.ts"],
+  "exclude": ["**/*.spec.ts"]
+}

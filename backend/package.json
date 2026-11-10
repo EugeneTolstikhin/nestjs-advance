@@ -36,7 +36,9 @@
     "typecheck:client": "tsc -p tsconfig.client.json --noEmit",
     "test:stock": "npm run build && node --test test/products-stock.cjs",
     "products:owners": "node scripts/assign-product-owners.cjs",
-    "test:ownership": "npm run build && node --test test/product-ownership.cjs test/product-owner-migration.cjs"
+    "test:ownership": "npm run build && node --test test/product-ownership.cjs test/product-owner-migration.cjs",
+    "checkout:demo": "tsc -p tsconfig.checkout-demo.json && node .tmp/checkout-demo/checkout.demo.js",
+    "test:checkout": "vitest run src/checkout/checkout.machine.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -61,7 +63,8 @@
     "survey-core": "^3.2.3",
     "survey-js-ui": "^3.2.3",
     "tus-js-client": "^4.3.1",
-    "typeorm": "^1.1.2"
+    "typeorm": "^1.1.2",
+    "xstate": "5.33.4"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",
