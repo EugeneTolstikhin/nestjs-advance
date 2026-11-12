@@ -103,3 +103,51 @@ test('stock availability is reflected in shop and cart; cancel and expiry releas
     assert.equal(expired.body.status, 'expired');
     assert.equal((await api.get(`/products/${p.id}`).expect(200)).body.availableStock, 2);
 });
+
+const delivery = { fullName: 'Buyer One', email: 'buyer@example.test', phone: '+4917612345678', addressLine1: 'Example Street 5', postalCode: '10115', city: 'Berlin', country: 'DE' };
+test('delivery to review works through guarded JSON commands and returns own contacts unmasked', async () => {
+    let session = (await reserve(buyer)).body;
+    const deadline = session.expiresAt;
+    const first = await as(api.post(`/checkout/${session.id}/delivery`)).send({ ...delivery, revision: 1 }).expect(200).expect('Cache-Control', 'no-store');
+    session = first.body;
+    assert.equal(session.step, 'shipping');
+    assert.equal(session.delivery.email, delivery.email); assert.equal(session.delivery.phone, delivery.phone);
+    assert.equal(session.shippingOptions[0].shipments.length, 2); assert.equal(session.shippingOptions[0].shippingCents, 998);
+    session = (await as(api.post(`/checkout/${session.id}/shipping`)).send({ method: 'standard', revision: 2 }).expect(200)).body;
+    assert.equal(session.step, 'review'); assert.equal(session.totalCents, 1323); assert.equal(session.expiresAt, deadline);
+    assert.equal(session.paymentStatus, 'not_started'); assert.equal(session.fulfillmentStatus, 'not_started');
+    const token = await jwt.signAsync({ sub: buyer, roles: ['buyer'] });
+    const resumed = (await api.get(`/checkout/${session.id}`).set('Authorization', `Bearer ${token}`).expect(200)).body;
+    assert.equal(resumed.step, 'review'); assert.deepEqual(resumed.delivery, delivery);
+    session = (await as(api.post(`/checkout/${session.id}/back`)).send({ revision: session.revision }).expect(200)).body;
+    session = (await as(api.post(`/checkout/${session.id}/back`)).send({ revision: session.revision }).expect(200)).body;
+    assert.equal(session.step, 'delivery');
+    session = (await as(api.post(`/checkout/${session.id}/delivery`)).send({ ...delivery, city: 'Hamburg', revision: session.revision }).expect(200)).body;
+    assert.equal(session.shipping, null); assert.equal(session.totalCents, null);
+});
+test('delivery and shipping reject forged totals, invalid addresses, stale versions and unauthorized edits', async () => {
+    const held = (await reserve(buyer)).body;
+    const path = `/checkout/${held.id}/delivery`;
+    for (const extra of [{ buyerId: other }, { totalCents: 1 }, { event: 'CONFIRM' }, { shipping: { shippingCents: 0 } }])
+        await as(api.post(path)).send({ ...delivery, revision: 1, ...extra }).expect(400);
+    for (const changes of [{ fullName: '  ' }, { postalCode: 'not postal' }, { country: 'US' }, { email: 'invalid' }, { phone: 'invalid' }, { email: undefined, phone: undefined }])
+        await as(api.post(path)).send({ ...delivery, revision: 1, ...changes }).expect(400);
+    await api.post(path).send({ ...delivery, revision: 1 }).expect(401);
+    await as(api.post(path), seller).send({ ...delivery, revision: 1 }).expect(403);
+    await as(api.post(path), other).send({ ...delivery, revision: 1 }).expect(404);
+    await as(api.post(path)).set('Origin', 'https://attacker.test').send({ ...delivery, revision: 1 }).expect(403);
+    await as(api.post(path)).type('form').send(delivery).expect(415);
+    const shippingPath = `/checkout/${held.id}/shipping`;
+    await as(api.post(shippingPath)).send({ revision: 1, method: 'standard' }).expect(409);
+    const saved = (await as(api.post(path)).send({ ...delivery, email: undefined, revision: 1 }).expect(200)).body;
+    assert.equal(saved.delivery.email, undefined); assert.equal(saved.delivery.phone, delivery.phone);
+    await as(api.post(shippingPath)).send({ revision: 1, method: 'standard' }).expect(409);
+    await as(api.post(shippingPath)).send({ revision: 2, method: 'free' }).expect(400);
+    await as(api.post(shippingPath)).send({ revision: 2, method: 'standard', shippingCents: 0 }).expect(400);
+    await as(api.post(`/checkout/${held.id}/back`), other).send({ revision: 2 }).expect(404);
+    await as(api.post(shippingPath), other).send({ revision: 2, method: 'standard' }).expect(404);
+    await db.getRepository(CheckoutSession).update(held.id, { expiresAt: Date.now() - 1 });
+    await as(api.post(shippingPath)).send({ revision: 2, method: 'standard' }).expect(409);
+    assert.equal(await db.getRepository(StockReservation).countBy({ checkoutId: held.id }), 0);
+    assert.equal((await db.getRepository(CheckoutSession).findOneByOrFail({ id: held.id })).status, 'expired');
+});

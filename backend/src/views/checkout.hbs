@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{title}} | Nest Shop</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-    <link rel="stylesheet" href="/assets/styles.css?v=11">
+    <link rel="stylesheet" href="/assets/styles.css?v=12">
     <script src="/assets/checkout.js" defer></script>
 </head>
 <body>
@@ -14,12 +14,14 @@
         <section class="intro">
             <p class="eyebrow">Your next step</p>
             <h1>Checkout</h1>
-            <p>Review your items, then reserve them while you prepare to order.</p>
+            <p>Reserve your items, add delivery details, and review your total before payment.</p>
         </section>
         <ol class="checkout-steps" aria-label="Checkout progress">
             <li id="checkout-review-step" aria-current="step">1. Review cart</li>
             <li id="checkout-reserve-step">2. Reserve items</li>
-            <li>3. Delivery and payment — coming next</li>
+            <li id="checkout-delivery-step">3. Delivery</li>
+            <li id="checkout-shipping-step">4. Shipping</li>
+            <li id="checkout-final-review-step">5. Review</li>
         </ol>
         <p id="checkout-status" class="form-status" role="status" aria-live="polite">Loading your cart…</p>
         <ul id="checkout-issues" tabindex="-1" class="form-error" aria-label="Items needing attention" hidden></ul>
@@ -27,14 +29,55 @@
             <h2 id="checkout-summary-title" tabindex="-1">Review your items</h2>
             <ul id="checkout-items" class="checkout-items"></ul>
             <p class="cart-total">Items subtotal: <strong id="checkout-total"></strong></p>
-            <p class="auth-note">Delivery costs and any further charges will be shown before payment in a later step. No payment is taken here.</p>
+            <p class="auth-note">Shipping is calculated after you save a delivery address. No payment is taken here.</p>
             <button type="button" id="checkout-reserve" class="nav-button nav-button-primary" hidden>Reserve items for 15 minutes</button>
         </section>
         <section id="checkout-reservation" class="checkout-panel" aria-labelledby="checkout-reservation-title" hidden>
             <h2 id="checkout-reservation-title" tabindex="-1">Your items are reserved</h2>
             <p>Time remaining: <strong id="checkout-countdown" role="timer" aria-live="off"></strong></p>
             <p>You can return on another device using the same account. Changes to your cart will not change this reservation.</p>
-            <p class="auth-note">Delivery details and payment are coming in the next step. This reservation is not an order, and you have not been charged.</p>
+            <p class="auth-note">This reservation is not an order. No payment has been taken.</p>
+            <section id="checkout-delivery" hidden aria-labelledby="checkout-delivery-title">
+                <h3 id="checkout-delivery-title" tabindex="-1">Delivery details</h3>
+                <p>Delivery is currently available within Germany. Provide at least one email or phone number for order updates. These details do not change your account.</p>
+                <form id="checkout-delivery-form" class="checkout-form">
+                    <label>Full name <input name="fullName" autocomplete="shipping name" minlength="2" maxlength="100" required></label>
+                    <label>Email for order updates (or phone below) <input name="email" type="email" autocomplete="email" maxlength="254"></label>
+                    <label>Phone (or email above) <input name="phone" type="tel" autocomplete="tel" pattern="\+[1-9][0-9]{6,14}" placeholder="+4917612345678" aria-describedby="checkout-phone-hint"></label>
+                    <p id="checkout-phone-hint" class="auth-note">Use international format, for example +4917612345678.</p>
+                    <label>Street and house number <input name="addressLine1" autocomplete="shipping address-line1" minlength="3" maxlength="150" required></label>
+                    <label>Apartment or address addition (optional) <input name="addressLine2" autocomplete="shipping address-line2" maxlength="150"></label>
+                    <label>Postal code <input name="postalCode" autocomplete="shipping postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" required></label>
+                    <label>City <input name="city" autocomplete="shipping address-level2" minlength="2" maxlength="100" required></label>
+                    <label>Country <select name="country" autocomplete="shipping country"><option value="DE">Germany</option></select></label>
+                    <button type="submit" class="nav-button nav-button-primary">Continue to shipping</button>
+                </form>
+            </section>
+            <section id="checkout-shipping" hidden aria-labelledby="checkout-shipping-title">
+                <h3 id="checkout-shipping-title" tabindex="-1">Choose shipping</h3>
+                <p class="auth-note">Demo rates: each seller sends a separate shipment. Standard €4.99 or express €9.99 per seller. These are not live carrier quotes.</p>
+                <form id="checkout-shipping-form">
+                    <fieldset><legend>Shipping method for all shipments</legend><div id="checkout-shipping-options"></div></fieldset>
+                    <div class="product-actions">
+                        <button type="button" data-checkout-back class="nav-button nav-button-secondary">Edit delivery details</button>
+                        <button type="submit" class="nav-button nav-button-primary">Continue to review</button>
+                    </div>
+                </form>
+            </section>
+            <section id="checkout-final-review" hidden aria-labelledby="checkout-final-review-title">
+                <h3 id="checkout-final-review-title" tabindex="-1">Review your checkout</h3>
+                <h4>Deliver to</h4><p id="checkout-delivery-summary" class="checkout-address"></p>
+                <h4>Shipping</h4><p id="checkout-shipping-summary"></p>
+                <ul id="checkout-shipment-review" class="checkout-items" aria-label="Shipping charges by seller"></ul>
+                <dl class="checkout-totals">
+                    <dt>Items</dt><dd id="checkout-review-subtotal"></dd>
+                    <dt>Shipping</dt><dd id="checkout-review-shipping"></dd>
+                    <dt>Total</dt><dd id="checkout-review-total"></dd>
+                </dl>
+                <p>Payment is the next implementation step. No order has been placed. The reservation expires at the original deadline.</p>
+                <button type="button" data-checkout-back class="nav-button nav-button-secondary">Change shipping</button>
+                <button type="button" class="nav-button nav-button-primary" disabled>Payment coming next</button>
+            </section>
             <button type="button" id="checkout-release" class="nav-button nav-button-secondary">Release reservation</button>
         </section>
         <div class="product-actions">

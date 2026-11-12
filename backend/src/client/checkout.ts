@@ -3,10 +3,28 @@
   if (!root) return;
   interface Line {
     productId: string;
+    sellerId?: string;
     name: string;
     quantity: number;
     unitPriceCents: number;
     lineTotalCents: number;
+  }
+  interface Delivery {
+    fullName: string;
+    email?: string;
+    phone?: string;
+    addressLine1: string;
+    addressLine2?: string;
+    postalCode: string;
+    city: string;
+    country: string;
+  }
+  interface Shipping {
+    method: string;
+    label: string;
+    estimatedDelivery: string;
+    shipments: { sellerId: string; feeCents: number }[];
+    shippingCents: number;
   }
   interface Reservation {
     id: string;
@@ -16,6 +34,11 @@
     items: Line[];
     subtotalCents: number;
     serverNow: number;
+    step?: string;
+    delivery?: Delivery | null;
+    shipping?: Shipping | null;
+    shippingOptions?: Shipping[];
+    totalCents?: number | null;
   }
   interface Preview {
     serverNow: number;
@@ -69,6 +92,7 @@
       current = undefined;
       summary.hidden = panel.hidden = issues.hidden = true;
       list.replaceChildren();
+      clearDetails();
       throw new Error(
         response.status === 401
           ? 'Your session expired. Log in again to continue checkout.'
@@ -131,16 +155,267 @@
       document
         .getElementById('checkout-reserve-step')!
         .setAttribute('aria-current', 'step');
-    message(
-      active
-        ? 'Your reservation is saved. No payment has been taken.'
-        : data.quote.canReserve
-          ? 'Review the items and subtotal before reserving.'
-          : 'Update your cart before continuing.',
-      !active && !data.quote.canReserve,
-    );
+    if (!detailsDirty)
+      message(
+        active
+          ? 'Your reservation is saved. No payment has been taken.'
+          : data.quote.canReserve
+            ? 'Review the items and subtotal before reserving.'
+            : 'Update your cart before continuing.',
+        !active && !data.quote.canReserve,
+      );
+    drawDetails(active);
     tick();
   }
+  const deliveryForm = document.getElementById(
+    'checkout-delivery-form',
+  ) as HTMLFormElement | null;
+  const shippingForm = document.getElementById(
+    'checkout-shipping-form',
+  ) as HTMLFormElement | null;
+  let renderedDetails = '';
+  let detailsDirty = false;
+  function clearDetails() {
+    deliveryForm?.reset();
+    shippingForm?.reset();
+    for (const id of [
+      'checkout-delivery',
+      'checkout-shipping',
+      'checkout-final-review',
+    ]) {
+      const node = document.getElementById(id);
+      if (node) node.hidden = true;
+    }
+    for (const id of [
+      'checkout-delivery-summary',
+      'checkout-shipping-summary',
+      'checkout-shipping-options',
+      'checkout-review-subtotal',
+      'checkout-review-shipping',
+      'checkout-review-total',
+      'checkout-shipment-review',
+    ])
+      document.getElementById(id)?.replaceChildren();
+    renderedDetails = '';
+    detailsDirty = false;
+  }
+  function drawDetails(active: Reservation | null) {
+    const step = active?.step ?? 'delivery';
+    for (const [id, value] of [
+      ['checkout-delivery', 'delivery'],
+      ['checkout-shipping', 'shipping'],
+      ['checkout-final-review', 'review'],
+    ]) {
+      const node = document.getElementById(id);
+      if (node) node.hidden = !active || step !== value;
+    }
+    for (const [id, value] of [
+      ['checkout-delivery-step', 'delivery'],
+      ['checkout-shipping-step', 'shipping'],
+      ['checkout-final-review-step', 'review'],
+    ]) {
+      const node = document.getElementById(id);
+      node?.removeAttribute('aria-current');
+      if (active && step === value) node?.setAttribute('aria-current', 'step');
+    }
+    if (active && document.getElementById('checkout-delivery-step'))
+      document
+        .getElementById('checkout-reserve-step')
+        ?.removeAttribute('aria-current');
+    if (!active) {
+      clearDetails();
+      return;
+    }
+    // Polling must never overwrite a partially typed address or reset keyboard focus.
+    const key = `${active.id}:${active.revision}:${step}`;
+    if (renderedDetails === key) return;
+    if (detailsDirty && renderedDetails && renderedDetails !== key) {
+      detailsDirty = false;
+      message(
+        'Checkout changed on another device. The latest saved details are shown; review them before continuing.',
+      );
+    }
+    renderedDetails = key;
+    if (deliveryForm) {
+      deliveryForm.reset();
+      (
+        deliveryForm.elements.namedItem('email') as HTMLInputElement
+      )?.setCustomValidity('');
+      for (const [name, value] of Object.entries(active.delivery ?? {})) {
+        const input = deliveryForm.elements.namedItem(name);
+        if (
+          input instanceof HTMLInputElement ||
+          input instanceof HTMLSelectElement
+        )
+          input.value = value;
+      }
+    }
+    const options = document.getElementById('checkout-shipping-options');
+    options?.replaceChildren(
+      ...(active.shippingOptions ?? []).map((option) => {
+        const label = document.createElement('label');
+        label.className = 'checkout-shipping-option';
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'method';
+        input.value = option.method;
+        input.required = true;
+        input.checked = active.shipping?.method === option.method;
+        const text = document.createElement('span');
+        text.textContent = `${option.label} · ${money(option.shippingCents)} for ${option.shipments.length} shipment(s) · ${option.estimatedDelivery}`;
+        label.append(input, text);
+        return label;
+      }),
+    );
+    const delivery = active.delivery;
+    const address = document.getElementById('checkout-delivery-summary');
+    if (address)
+      address.textContent = delivery
+        ? [
+            delivery.fullName,
+            delivery.addressLine1,
+            delivery.addressLine2,
+            `${delivery.postalCode} ${delivery.city}`,
+            'Germany',
+            delivery.email,
+            delivery.phone,
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : '';
+    const shipping = document.getElementById('checkout-shipping-summary');
+    if (shipping)
+      shipping.textContent = active.shipping
+        ? `${active.shipping.label} · ${active.shipping.shipments.length} separate seller shipment(s) · ${active.shipping.estimatedDelivery}`
+        : '';
+    document.getElementById('checkout-shipment-review')?.replaceChildren(
+      ...(active.shipping?.shipments ?? []).map((shipment, index) => {
+        const item = document.createElement('li');
+        const names = active.items
+          .filter((line) => line.sellerId === shipment.sellerId)
+          .map((line) => line.name)
+          .join(', ');
+        item.textContent = `Shipment ${index + 1}: ${names || 'Seller items'} · ${money(shipment.feeCents)}`;
+        return item;
+      }),
+    );
+    for (const [id, amount] of [
+      ['checkout-review-subtotal', active.subtotalCents],
+      ['checkout-review-shipping', active.shipping?.shippingCents],
+      ['checkout-review-total', active.totalCents],
+    ] as const) {
+      const node = document.getElementById(id);
+      if (node)
+        node.textContent = amount == null ? 'Not selected' : money(amount);
+    }
+  }
+  function detailsBusy(value: boolean) {
+    for (const form of [deliveryForm, shippingForm])
+      form
+        ?.querySelectorAll<
+          HTMLInputElement | HTMLSelectElement | HTMLButtonElement
+        >('input, select, button')
+        .forEach((node) => {
+          node.disabled = value;
+        });
+    reserve.disabled = release.disabled = refreshButton.disabled = value;
+  }
+  async function saveDetails(
+    action: 'delivery' | 'shipping' | 'back',
+    values: Record<string, unknown> = {},
+  ) {
+    const old = current,
+      session = old?.checkout;
+    if (!old || !session || busy || stopped) return;
+    busy = true;
+    ++version;
+    detailsBusy(true);
+    root!.setAttribute('aria-busy', 'true');
+    let conflict = false;
+    let failure: string | undefined;
+    try {
+      const result = await api<Reservation>(
+        `/checkout/${session.id}/${action}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...values, revision: session.revision }),
+        },
+      );
+      if (stopped) return;
+      detailsDirty = false;
+      draw({ ...old, serverNow: result.serverNow, checkout: result });
+      message(
+        action === 'back'
+          ? 'Returned to the previous step.'
+          : 'Checkout details saved.',
+      );
+      document
+        .getElementById(
+          result.step === 'review'
+            ? 'checkout-final-review-title'
+            : `checkout-${result.step}-title`,
+        )
+        ?.focus();
+    } catch (error) {
+      failure =
+        error instanceof Error
+          ? error.message
+          : 'Could not save checkout details.';
+      conflict =
+        !!error &&
+        typeof error === 'object' &&
+        'status' in error &&
+        error.status === 409;
+    } finally {
+      busy = false;
+      detailsBusy(false);
+      root!.removeAttribute('aria-busy');
+    }
+    if (conflict) await refresh();
+    if (failure && !stopped) message(failure, true);
+  }
+  function validateContact() {
+    const email = deliveryForm?.elements.namedItem(
+      'email',
+    ) as HTMLInputElement | null;
+    const phone = deliveryForm?.elements.namedItem(
+      'phone',
+    ) as HTMLInputElement | null;
+    email?.setCustomValidity(
+      email.value.trim() || phone?.value.trim()
+        ? ''
+        : 'Provide an email or phone number for order updates.',
+    );
+  }
+  deliveryForm?.addEventListener('input', () => {
+    detailsDirty = true;
+    validateContact();
+  });
+  deliveryForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    validateContact();
+    if (!deliveryForm.reportValidity()) return;
+    const data = Object.fromEntries(new FormData(deliveryForm).entries());
+    for (const key of Object.keys(data)) {
+      if (typeof data[key] === 'string') data[key] = data[key].trim();
+      if (!data[key] && ['email', 'phone', 'addressLine2'].includes(key))
+        delete data[key];
+    }
+    void saveDetails('delivery', data);
+  });
+  shippingForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!shippingForm.reportValidity()) return;
+    void saveDetails('shipping', {
+      method: new FormData(shippingForm).get('method'),
+    });
+  });
+  root.querySelectorAll('[data-checkout-back]').forEach((button) =>
+    button.addEventListener('click', () => {
+      void saveDetails('back');
+    }),
+  );
   function tick() {
     const active = current?.checkout;
     if (active?.status !== 'reserved') return;
@@ -184,7 +459,7 @@
     busy = true;
     ++version;
     root!.setAttribute('aria-busy', 'true');
-    reserve.disabled = release.disabled = refreshButton.disabled = true;
+    detailsBusy(true);
     const old = current;
     let conflict: string | undefined;
     let failure: string | undefined;
@@ -233,7 +508,7 @@
     } finally {
       busy = false;
       root!.removeAttribute('aria-busy');
-      reserve.disabled = release.disabled = refreshButton.disabled = false;
+      detailsBusy(false);
     }
     if (cancel || conflict) await refresh();
     if (failure) message(failure, true);
@@ -269,6 +544,7 @@
     clearInterval(poll);
     current = undefined;
     list.replaceChildren();
+    clearDetails();
     summary.hidden = panel.hidden = issues.hidden = true;
   });
   window.addEventListener('pageshow', (event) => {

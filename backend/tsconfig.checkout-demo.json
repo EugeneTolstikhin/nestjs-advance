@@ -7,6 +7,6 @@
     "incremental": false,
     "types": ["node"]
   },
-  "include": ["src/checkout/**/*.ts"],
+  "include": ["src/checkout/checkout.machine.ts", "src/checkout/checkout.demo.ts"],
   "exclude": ["**/*.spec.ts"]
 }

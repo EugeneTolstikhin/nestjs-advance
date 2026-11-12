@@ -11,6 +11,7 @@ import { CartPageController } from './cart-page.controller';
 @Module({
     imports: [AuthModule, TypeOrmModule.forFeature([Products, ProductMedia])],
     exports: [CartRepository],
-    providers: [CartRepository, CartService], controllers: [CartController, CartPageController],
+    providers: [CartRepository, CartService],
+    controllers: [CartController, CartPageController],
 })
 export class CartModule {}

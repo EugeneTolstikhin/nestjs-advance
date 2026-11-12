@@ -13,25 +13,42 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { IsInt, IsString, IsUUID, Matches, Min } from 'class-validator';
+import {
+  IsInt,
+  IsString,
+  IsUUID,
+  Matches,
+  Min
+} from 'class-validator';
 import { SessionAuthGuard } from '../auth/guard/session-auth.guard';
 import { SameOriginGuard } from '../auth/guard/same-origin.guard';
 import { Roles } from '../auth/guard/roles.decorator';
 import { TypeOfUser } from '../auth/auth.dto';
 import type { AuthRequest } from '../auth/utils/auth-request';
+import { MaskPii } from '../interceptor/pii/mask-pii.decorator';
 import { CheckoutService } from './checkout.service';
+import {
+  CheckoutRevisionDto,
+  DeliveryDetailsDto,
+  SelectShippingDto,
+} from './checkout-details.dto';
 
 class CheckoutIdDto {
   @IsUUID('4') id: string;
 }
 class ReserveCheckoutDto {
-  @IsString() @Matches(/^[a-f0-9]{64}$/) quoteHash: string;
+  @IsString()
+  @Matches(/^[a-f0-9]{64}$/)
+  quoteHash: string;
 }
 class CancelCheckoutDto {
-  @IsInt() @Min(1) revision: number;
+  @IsInt()
+  @Min(1)
+  revision: number;
 }
 
 @Controller('checkout')
+@MaskPii(false) // Delivery details are returned only to the authenticated checkout owner.
 @UseGuards(SessionAuthGuard, SameOriginGuard)
 @Roles(TypeOfUser.Buyer)
 @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
@@ -55,6 +72,39 @@ export class CheckoutController {
   @Header('Cache-Control', 'no-store')
   reserve(@Req() request: AuthRequest, @Body() dto: ReserveCheckoutDto) {
     return this.checkout.reserve(request.user!.sub, dto.quoteHash);
+  }
+
+  @Post(':id/delivery')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  delivery(
+    @Req() request: AuthRequest,
+    @Param() params: CheckoutIdDto,
+    @Body() body: DeliveryDetailsDto,
+  ) {
+    return this.checkout.saveDelivery(request.user!.sub, params.id, body);
+  }
+
+  @Post(':id/shipping')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  shipping(
+    @Req() request: AuthRequest,
+    @Param() params: CheckoutIdDto,
+    @Body() body: SelectShippingDto,
+  ) {
+    return this.checkout.selectShipping(request.user!.sub, params.id, body);
+  }
+
+  @Post(':id/back')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  back(
+    @Req() request: AuthRequest,
+    @Param() params: CheckoutIdDto,
+    @Body() body: CheckoutRevisionDto,
+  ) {
+    return this.checkout.back(request.user!.sub, params.id, body.revision);
   }
 
   @Get(':id')

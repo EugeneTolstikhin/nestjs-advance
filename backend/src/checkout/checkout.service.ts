@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -22,6 +23,10 @@ import {
 } from './checkout-session.entity';
 import { checkoutMachine, type CheckoutEvent } from './checkout.machine';
 import { reservedQuantities } from './stock-availability';
+import { DeliveryDetailsDto, SelectShippingDto } from './checkout-details.dto';
+import { shippingOptions, type DeliveryDetails } from './shipping';
+import { validateSync } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 
 export const RESERVATION_MS = 15 * 60_000;
 const hash = (value: unknown) =>
@@ -153,6 +158,83 @@ export class CheckoutService {
       await manager.save(CheckoutSession, session);
       return this.view(session);
     });
+  }
+
+  async saveDelivery(buyerId: string, id: string, body: DeliveryDetailsDto) {
+    // Validate again at the service boundary, including internal/non-HTTP callers.
+    const normalized = Object.fromEntries(
+      Object.entries(body).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value.trim() : value,
+      ]),
+    );
+    const dto = plainToInstance(DeliveryDetailsDto, normalized);
+    if (
+      validateSync(dto, { whitelist: true, forbidNonWhitelisted: true }).length
+    )
+      throw new BadRequestException(
+        'Provide a name, a complete German delivery address and at least one valid email or phone number.',
+      );
+    return this.updateDetails(buyerId, id, dto.revision, (session) => {
+      if (session.machineSnapshot.value !== 'delivery')
+        throw new ConflictException(
+          'Return to delivery details before editing the address.',
+        );
+      const { revision: _revision, ...delivery } = dto;
+      session.delivery = delivery as DeliveryDetails;
+      session.shipping = null; // Address changes invalidate any previously selected tariff.
+      this.transition(session, [{ type: 'DELIVERY_ACCEPTED' }]);
+    });
+  }
+
+  async selectShipping(buyerId: string, id: string, body: SelectShippingDto) {
+    return this.updateDetails(buyerId, id, body.revision, (session) => {
+      if (session.machineSnapshot.value !== 'shipping' || !session.delivery)
+        throw new ConflictException(
+          'Save delivery details before selecting shipping.',
+        );
+      const selected = shippingOptions(
+        session.items,
+        session.delivery.country,
+      ).find((option) => option.method === body.method);
+      if (!selected)
+        throw new BadRequestException('Choose an available shipping method.');
+      session.shipping = selected;
+      this.transition(session, [{ type: 'SHIPPING_SELECTED' }]);
+    });
+  }
+
+  async back(buyerId: string, id: string, revision: number) {
+    return this.updateDetails(buyerId, id, revision, (session) => {
+      this.transition(session, [{ type: 'BACK' }]);
+    });
+  }
+
+  private async updateDetails(
+    buyerId: string,
+    id: string,
+    revision: number,
+    change: (session: CheckoutSession) => void,
+  ) {
+    // Commit expiry cleanup even when the requested edit must subsequently fail.
+    const result = await this.products.withStockTransaction(async (manager) => {
+      await this.expire(manager);
+      const session = await this.owned(manager, buyerId, id);
+      if (session.status !== 'reserved') return null;
+      if (session.revision !== revision)
+        throw new ConflictException(
+          'Checkout changed on another device. Refresh and review before continuing.',
+        );
+      change(session);
+      session.revision++;
+      await manager.save(CheckoutSession, session);
+      return this.view(session);
+    });
+    if (!result)
+      throw new ConflictException(
+        'This reservation expired or was released. Return to your cart.',
+      );
+    return result;
   }
 
   private async owned(manager: EntityManager, buyerId: string, id: string) {
@@ -311,6 +393,18 @@ export class CheckoutService {
       subtotalCents: session.subtotalCents,
       currency: session.currency,
       step: session.machineSnapshot.value,
+      phase: 'checkout' as const,
+      paymentStatus: 'not_started' as const,
+      fulfillmentStatus: 'not_started' as const,
+      delivery: session.delivery ?? null,
+      shipping: session.shipping ?? null,
+      shippingOptions: session.delivery
+        ? shippingOptions(session.items, session.delivery.country)
+        : [],
+      shippingCents: session.shipping?.shippingCents ?? null,
+      totalCents: session.shipping
+        ? session.subtotalCents + session.shipping.shippingCents
+        : null,
     };
   }
 }

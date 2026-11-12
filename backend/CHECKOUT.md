@@ -4,8 +4,8 @@
 
 Implemented: `/cart` now links to `/checkout`. Authenticated buyers can review
 server-calculated item prices, reserve the selected cart for 15 minutes, resume
-that hold on another device, and release it. This step stops at the reservation
-confirmation: delivery forms, payment, order placement and invoices are not wired up.
+that hold on another device, and release it. Delivery, shipping and review are also implemented (see the next milestone below).
+Payment, order placement, fulfillment and invoices remain future work.
 
 The server reads the buyer's MongoDB cart, validates every product/quantity/price
 and assigned seller, and compares a canonical quote hash before reserving. The
@@ -46,16 +46,77 @@ planned work.
 | POST | `/checkout/reservations` | `{ "quoteHash": "..." }`; create/reuse a hold |
 | GET | `/checkout/:id` | Own reservation status; foreign IDs return 404 |
 | DELETE | `/checkout/:id` | `{ "revision": 1 }`; release an unchanged hold |
+| POST | `/checkout/:id/delivery` | Address/contact fields plus `revision`; save and go to shipping |
+| POST | `/checkout/:id/shipping` | `{ "revision": 2, "method": "standard" }`; calculate and save shipping, go to review |
+| POST | `/checkout/:id/back` | `{ "revision": 3 }`; review → shipping or shipping → delivery |
 
 All routes require the buyer role, support session cookies or bearer tokens, and
 use `Cache-Control: no-store`. Mutations enforce same-origin protection and DTO
 whitelists. Authentication and account ownership are determined on the server.
 
 Development synchronization creates the tables. Production must apply
-`migrations/003-checkout-reservations.sql` before deploying this version.
+`migrations/003-checkout-reservations.sql`, then
+`migrations/004-checkout-details.sql` before deploying this version. Apply each once;
+existing sessions remain usable with null delivery/shipping fields.
 `npm run test:checkout` runs model and browser tests;
 `npm run test:checkout:integration` builds and runs SQL/reservation and HTTP tests.
 Stop development watchers before invoking build-based test commands.
+
+## Delivery, shipping and review milestone
+
+Implemented in the **checkout phase**, using the existing persisted XState
+`delivery -> shipping -> review` states. Server commands validate and save business
+data and the matching machine snapshot in the same SQL transaction. The browser
+cannot send XState events or advance straight to payment. Existing snapshot
+state names remain compatible; no machine-version migration is needed.
+
+The owner-only response explicitly distinguishes `phase: "checkout"`,
+`paymentStatus: "not_started"` and `fulfillmentStatus: "not_started"`. These last
+two are milestone boundary markers, not implemented payment/fulfillment engines.
+Later payment status and seller shipment/fulfillment status will have their own
+durable records. Choosing a shipping method now does **not** create a shipment,
+charge money, finalize an order or generate an invoice.
+
+Delivery requires a full name, street/house-number line, five-digit postal code,
+city, country `DE`, and **at least one valid email or international phone number**.
+Every supplied contact must be syntactically valid. Contact details here are for
+this checkout, do not modify account contacts or login credentials, and are not
+newly OTP-verified. Future invoice emails must still use a verified destination.
+Phone-only buyers can continue without an email. Country support currently stops
+at Germany; address validation checks format, not actual deliverability.
+
+`src/checkout/shipping.ts` is the local demo tariff adapter: standard €4.99 or
+express €9.99 **per distinct seller**. One method is applied to all seller
+shipments. Estimates are explicitly demo estimates, not carrier guarantees. Rates
+are calculated solely on the server from the reserved item/seller snapshot. For
+two sellers standard shipping is €9.98. The selected quote, its per-seller fees,
+and the delivery details are saved in SQLite; review displays items, delivery,
+shipping by seller, subtotal, shipping and total using integer cents. It uses the
+existing catalog prices; no new tax, discount, billing-address or payment logic
+is introduced. A future carrier adapter can replace `shippingOptions` without
+moving pricing into the browser.
+
+Back navigation allows review → shipping → delivery. Saving delivery again clears
+any shipping selection and requires another selection/review. Every write includes
+the last observed revision; concurrent/stale edits fail with 409. The UI refreshes
+the server version on a conflict, so the buyer must review the saved state before
+resubmitting. Repeating a delivery/shipping write with an old revision does not
+apply twice; reload recovers the already committed state after a lost response.
+The original 15-minute deadline never extends while filling in forms or going back.
+Expiry and cancellation work in all three states and release the same stock hold.
+
+The Handlebars page uses accessible native forms with browser TypeScript for
+commands, native Enter submission, validation and focus on the next heading.
+Background polling preserves unsaved input/focus when the revision is unchanged.
+A newer revision from another device reloads the saved details with a notice.
+Private form/review values are cleared when leaving the page or after session
+expiry. Own delivery data is deliberately exempt from the global PII mask, so
+editing never sends a masked email/phone back to the server; ownership guards and
+`no-store` headers protect the endpoints. Addresses/contacts are not logged.
+
+The last screen deliberately stops at review with “Payment coming next”. The next
+milestone is creating pending parent/seller orders from these snapshots, then
+starting the separate payment flow. Fulfillment follows a confirmed order.
 
 ## Milestone 1: state machine and transition logs
 
@@ -172,7 +233,7 @@ References: [XState actions/logging](https://stately.ai/docs/actions) and
 Each milestone is kept reviewable and tested. You commit and push it yourself on main;
 the agent does not create commits or branches. Milestone 1 is the
 initial model implementation. Step 2 now adds real validation, reservations and
-a buyer UI; subsequent items are still planned work.
+a buyer UI; delivery/shipping/review is now complete too. Subsequent items remain planned.
 
 1. [x] **Model checkout states and logged transitions.** Typed outcomes, payment
    attempt correlation, explicit release/finalization acknowledgements, demo and tests.
@@ -180,9 +241,9 @@ a buyer UI; subsequent items are still planned work.
    fixed deadlines, idempotent reservation requests, session ownership, cancellation
    revisions and cross-device/restart recovery. Full order event auditing and
    payment-command concurrency remain part of the later order/payment implementation.
-3. [ ] **Add delivery, shipping and review UI.** Handlebars/SurveyJS, structured
+3. [x] **Add delivery, shipping and review UI.** Handlebars/native forms, structured
    addresses, seller-grouped shipping, integer-cent EUR quotes and explicit
-   re-review when prices or availability change. An empty/invalid cart or a product
+   review, saved delivery/shipping and revision-checked back navigation. An empty/invalid cart or a product
    without an assigned seller cannot proceed.
 4. [ ] **Add pending orders and extend reservations into the order workflow.** Parent order plus seller
    orders, immutable item/address/price snapshots, reservation deadlines, atomic

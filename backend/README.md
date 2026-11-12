@@ -7,7 +7,7 @@ See [STOCK.md](./STOCK.md) for seller stock counts, restocking and future checko
 
 See [OWNERSHIP.md](./OWNERSHIP.md) for seller access rules and assigning legacy products.
 
-See [CHECKOUT.md](./CHECKOUT.md) for the checkout state-machine demo and incremental payment/invoice roadmap.
+See [CHECKOUT.md](./CHECKOUT.md) for cart reservations, delivery/shipping/review UI, the state-machine demo and the payment/invoice roadmap.
 
 ## Handlebars UI
 

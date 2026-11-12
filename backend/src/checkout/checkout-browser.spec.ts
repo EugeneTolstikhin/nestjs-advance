@@ -1,4 +1,5 @@
-import { Window } from 'happy-dom';
+import { readFileSync } from 'node:fs';
+import { Window, type HTMLInputElement as HappyInput } from 'happy-dom';
 import { clientScript } from '../../test/client-script';
 const script = clientScript('checkout');
 const line = {
@@ -47,9 +48,12 @@ describe('Checkout browser UI', () => {
     });
     fetchMock = vi.fn().mockResolvedValue(response(preview()));
     window.fetch = fetchMock as unknown as Window['fetch'];
-    window.document.body.innerHTML = `<main id="checkout-page"><li id="checkout-review-step"></li><li id="checkout-reserve-step"></li>
-      <p id="checkout-status" role="status"></p><ul id="checkout-issues"></ul><section id="checkout-summary"><h2 id="checkout-summary-title" tabindex="-1">Review items</h2><ul id="checkout-items"></ul><strong id="checkout-total"></strong><button id="checkout-reserve">Reserve</button></section>
-      <section id="checkout-reservation"><h2 id="checkout-reservation-title" tabindex="-1">Reserved</h2><strong id="checkout-countdown"></strong><button id="checkout-release">Release</button></section><button id="checkout-refresh">Refresh</button></main>`;
+    window.document.body.innerHTML = readFileSync(
+      'src/views/checkout.hbs',
+      'utf8',
+    )
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/g, '')
+      .replace(/<link[^>]*>/g, '');
   });
   afterEach(async () => {
     window.dispatchEvent(new window.Event('pagehide'));
@@ -98,7 +102,7 @@ describe('Checkout browser UI', () => {
     await start();
     expect(element('checkout-reservation').hidden).toBe(false);
     expect(element('checkout-reserve').hidden).toBe(true);
-    expect(element('checkout-reserve-step').getAttribute('aria-current')).toBe(
+    expect(element('checkout-delivery-step').getAttribute('aria-current')).toBe(
       'step',
     );
     expect(fetchMock.mock.calls).toHaveLength(1);
@@ -191,5 +195,205 @@ describe('Checkout browser UI', () => {
     expect(element('checkout-status').textContent).toContain('Log in');
     window.dispatchEvent(new window.Event('pagehide'));
     expect(element('checkout-reservation').hidden).toBe(true);
+  });
+  const delivery = {
+    fullName: 'Buyer One',
+    email: 'buyer@example.test',
+    addressLine1: 'Street 12',
+    postalCode: '10115',
+    city: 'Berlin',
+    country: 'DE',
+  };
+  const options = [
+    {
+      method: 'standard',
+      label: 'Standard delivery',
+      estimatedDelivery: '3–5 days',
+      shipments: [{ sellerId: 'seller', feeCents: 499 }],
+      shippingCents: 499,
+    },
+  ];
+  function fillAddress() {
+    for (const [name, value] of Object.entries(delivery)) {
+      const input = window.document.querySelector(
+        `[name="${name}"]`,
+      ) as HappyInput;
+      input.value = value;
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    }
+  }
+  function submit(id: string) {
+    window.document
+      .getElementById(id)!
+      .dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true }),
+      );
+  }
+  it('submits delivery with Enter/native submit, then shipping, and shows the server review without starting payment', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        ...preview(),
+        checkout: { ...reservation(), step: 'delivery' },
+      }),
+    );
+    await start();
+    expect(element('checkout-delivery').hidden).toBe(false);
+    fillAddress();
+    fetchMock.mockResolvedValueOnce(
+      response({
+        ...reservation(),
+        step: 'shipping',
+        revision: 2,
+        delivery,
+        shippingOptions: options,
+      }),
+    );
+    submit('checkout-delivery-form');
+    await vi.waitFor(() =>
+      expect(element('checkout-shipping').hidden).toBe(false),
+    );
+    let call = fetchMock.mock.calls.find(([path]) =>
+      path.endsWith('/delivery'),
+    )!;
+    expect(JSON.parse(call[1].body)).toEqual({ ...delivery, revision: 1 });
+    expect(window.document.activeElement?.id).toBe('checkout-shipping-title');
+    expect(element('checkout-shipping-options').textContent).toContain('4.99');
+    (window.document.querySelector('[name="method"]') as HappyInput).checked =
+      true;
+    fetchMock.mockResolvedValueOnce(
+      response({
+        ...reservation(),
+        step: 'review',
+        revision: 3,
+        delivery,
+        shippingOptions: options,
+        shipping: options[0],
+        totalCents: 749,
+      }),
+    );
+    submit('checkout-shipping-form');
+    await vi.waitFor(() =>
+      expect(element('checkout-final-review').hidden).toBe(false),
+    );
+    call = fetchMock.mock.calls.find(([path]) => path.endsWith('/shipping'))!;
+    expect(JSON.parse(call[1].body)).toEqual({
+      method: 'standard',
+      revision: 2,
+    });
+    expect(element('checkout-review-total').textContent).toContain('7.49');
+    expect(element('checkout-delivery-summary').textContent).toContain(
+      delivery.email,
+    );
+    expect(window.document.activeElement?.id).toBe(
+      'checkout-final-review-title',
+    );
+    expect(
+      fetchMock.mock.calls.some(([path]) => /payment|confirm/.test(path)),
+    ).toBe(false);
+  });
+  it('keeps an unsaved address and keyboard focus during polling, and preserves input on validation errors', async () => {
+    const data = {
+      ...preview(),
+      checkout: { ...reservation(), step: 'delivery' },
+    };
+    fetchMock.mockResolvedValue(response(data));
+    await start();
+    fillAddress();
+    const input = window.document.querySelector('[name="city"]') as HappyInput;
+    input.value = 'Hamburg';
+    input.focus();
+    window.dispatchEvent(new window.Event('focus'));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(input.value).toBe('Hamburg');
+    expect(window.document.activeElement?.getAttribute('name')).toBe('city');
+    fetchMock.mockResolvedValueOnce(
+      response({ message: 'Invalid delivery address' }, 400),
+    );
+    submit('checkout-delivery-form');
+    await vi.waitFor(() =>
+      expect(element('checkout-status').textContent).toContain(
+        'Invalid delivery',
+      ),
+    );
+    expect(input.value).toBe('Hamburg');
+    expect(element('checkout-delivery').hidden).toBe(false);
+  });
+  it('requires at least one contact, supports phone-only checkout, and prevents duplicate submits', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        ...preview(),
+        checkout: { ...reservation(), step: 'delivery' },
+      }),
+    );
+    await start();
+    fillAddress();
+    const email = window.document.querySelector('[name="email"]') as HappyInput;
+    email.value = '';
+    submit('checkout-delivery-form');
+    expect(
+      fetchMock.mock.calls.filter(([path]) => path.endsWith('/delivery')),
+    ).toHaveLength(0);
+    const phone = window.document.querySelector('[name="phone"]') as HappyInput;
+    phone.value = '+4917612345678';
+    phone.dispatchEvent(new window.Event('input', { bubbles: true }));
+    fetchMock.mockResolvedValueOnce(
+      response({
+        ...reservation(),
+        revision: 2,
+        step: 'shipping',
+        delivery: { ...delivery, email: undefined, phone: phone.value },
+        shippingOptions: options,
+      }),
+    );
+    submit('checkout-delivery-form');
+    submit('checkout-delivery-form');
+    await vi.waitFor(() =>
+      expect(element('checkout-shipping').hidden).toBe(false),
+    );
+    const calls = fetchMock.mock.calls.filter(([path]) =>
+      path.endsWith('/delivery'),
+    );
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(calls[0][1].body).email).toBeUndefined();
+    expect(JSON.parse(calls[0][1].body).phone).toBe('+4917612345678');
+  });
+  it('resumes review, safely renders delivery text, navigates back and clears private form data on logout', async () => {
+    const saved = {
+      ...reservation(),
+      revision: 3,
+      step: 'review',
+      delivery: { ...delivery, fullName: '<img src=x>' },
+      shipping: options[0],
+      shippingOptions: options,
+      totalCents: 749,
+    };
+    fetchMock.mockResolvedValue(response({ ...preview(), checkout: saved }));
+    await start();
+    expect(element('checkout-final-review').hidden).toBe(false);
+    expect(
+      element('checkout-delivery-summary').querySelector('img'),
+    ).toBeNull();
+    fetchMock.mockResolvedValueOnce(
+      response({ ...saved, step: 'shipping', revision: 4 }),
+    );
+    (
+      element('checkout-final-review').querySelector(
+        '[data-checkout-back]',
+      ) as HTMLElement
+    ).click();
+    await vi.waitFor(() =>
+      expect(element('checkout-shipping').hidden).toBe(false),
+    );
+    const call = fetchMock.mock.calls.find(([path]) => path.endsWith('/back'))!;
+    expect(JSON.parse(call[1].body)).toEqual({ revision: 3 });
+    fetchMock.mockResolvedValue(response({ message: 'Unauthorized' }, 401));
+    window.dispatchEvent(new window.Event('focus'));
+    await vi.waitFor(() =>
+      expect(element('checkout-reservation').hidden).toBe(true),
+    );
+    expect(element('checkout-delivery-summary').textContent).toBe('');
+    expect(
+      (window.document.querySelector('[name="fullName"]') as HappyInput).value,
+    ).toBe('');
   });
 });
