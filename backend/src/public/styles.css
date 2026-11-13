@@ -182,3 +182,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 #checkout-page [hidden] { display: none; }
 #checkout-page fieldset { min-width: 0; border: 1px solid #dddcd4; border-radius: 8px; }
 #checkout-page h3:focus, #checkout-page h2:focus { outline: 3px solid #526b44; outline-offset: 4px; }
+
+
+/* Keep step navigation together and separate reservation-wide controls. */
+.checkout-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; width: 100%; }
+.checkout-actions .nav-button { min-height: 44px; }
+.checkout-actions .nav-button-primary { margin-left: auto; }
+.checkout-reservation-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #dddcd4; }
+@media (max-width: 600px) {
+    .checkout-actions { align-items: stretch; flex-direction: column; }
+    .checkout-actions .nav-button, .checkout-reservation-actions .nav-button { width: 100%; margin-left: 0; }
+}
+
+/* The original editor remains in its form for native validation and model binding. */
+input[data-otp-source] { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip-path: inset(50%); border: 0 !important; }
+.otp-digits { display: flex; gap: clamp(6px, 2vw, 12px); width: fit-content; max-width: 100%; padding: 4px; }
+.otp-digits input { width: clamp(30px, 9vw, 52px); min-width: 0; height: clamp(40px, 11vw, 60px); flex: 0 1 52px; padding: 0; border: 1px solid #a9b59e; border-radius: 8px; background: #fff; color: #242b25; text-align: center; font: 600 clamp(20px, 5vw, 28px)/1 ui-monospace, monospace; box-shadow: none; }
+.otp-digits input:focus { outline: 2px solid #526b44; outline-offset: 2px; border-color: #526b44; background: #f7f6f2; }
+.otp-digits input[aria-invalid="true"] { border-color: #9b2525; }
+.otp-digits input:disabled { opacity: .65; }
+.sd-question:has([data-otp-source]) .sd-text__character-counter { display: none; }
+.sd-formbox:has([data-otp-source]) { padding: 0; background: transparent; box-shadow: none; border: 0; }
+.sd-question:has([data-otp-source]) .sd-formbox__character-counter { display: none; }
+.otp-digits input { letter-spacing: normal; }

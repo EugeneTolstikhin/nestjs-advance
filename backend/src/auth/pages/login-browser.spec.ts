@@ -27,7 +27,7 @@ describe('Login page with the actual SurveyJS renderer', () => {
         window = new Window({ settings: { enableJavaScriptEvaluation: true,
             suppressInsecureJavaScriptEnvironmentWarning: true } });
         document = window.document;
-        window.eval(core); window.eval(ui); window.eval(keyboard);
+        window.eval(core); window.eval(ui); window.eval(keyboard); window.eval(clientScript('otp-input'));
         globals = window as unknown as typeof globals;
         document.body.innerHTML = '<div id="login-form"></div><p id="login-status"></p><div id="login-code-actions" hidden></div><button id="login-resend"></button><button id="login-back"></button>';
         const OriginalModel = globals.Survey.Model;
@@ -132,6 +132,7 @@ describe('Login page with the actual SurveyJS renderer', () => {
         document.getElementById('login-resend')!.click();
         await vi.waitFor(() => expect(current().getValue('code')).toBeUndefined());
         expect(codeInput()).not.toBeNull();
+        expect(Array.from(document.querySelectorAll('.otp-digits input')).every(input => (input as unknown as HTMLInputElement).value === '')).toBe(true);
         expect(redirect).not.toHaveBeenCalled();
     });
 

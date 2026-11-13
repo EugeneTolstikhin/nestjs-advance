@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{title}} | Nest Shop</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-    <link rel="stylesheet" href="/assets/styles.css?v=12">
+    <link rel="stylesheet" href="/assets/styles.css?v=13">
     <script src="/assets/checkout.js" defer></script>
 </head>
 <body>
@@ -50,7 +50,9 @@
                     <label>Postal code <input name="postalCode" autocomplete="shipping postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" required></label>
                     <label>City <input name="city" autocomplete="shipping address-level2" minlength="2" maxlength="100" required></label>
                     <label>Country <select name="country" autocomplete="shipping country"><option value="DE">Germany</option></select></label>
-                    <button type="submit" class="nav-button nav-button-primary">Continue to shipping</button>
+                    <div class="checkout-actions">
+                        <button type="submit" class="nav-button nav-button-primary">Continue to shipping</button>
+                    </div>
                 </form>
             </section>
             <section id="checkout-shipping" hidden aria-labelledby="checkout-shipping-title">
@@ -58,7 +60,7 @@
                 <p class="auth-note">Demo rates: each seller sends a separate shipment. Standard €4.99 or express €9.99 per seller. These are not live carrier quotes.</p>
                 <form id="checkout-shipping-form">
                     <fieldset><legend>Shipping method for all shipments</legend><div id="checkout-shipping-options"></div></fieldset>
-                    <div class="product-actions">
+                    <div class="checkout-actions">
                         <button type="button" data-checkout-back class="nav-button nav-button-secondary">Edit delivery details</button>
                         <button type="submit" class="nav-button nav-button-primary">Continue to review</button>
                     </div>
@@ -75,10 +77,14 @@
                     <dt>Total</dt><dd id="checkout-review-total"></dd>
                 </dl>
                 <p>Payment is the next implementation step. No order has been placed. The reservation expires at the original deadline.</p>
-                <button type="button" data-checkout-back class="nav-button nav-button-secondary">Change shipping</button>
-                <button type="button" class="nav-button nav-button-primary" disabled>Payment coming next</button>
+                <div class="checkout-actions">
+                    <button type="button" data-checkout-back class="nav-button nav-button-secondary">Change shipping</button>
+                    <button type="button" class="nav-button nav-button-primary" disabled>Payment coming next</button>
+                </div>
             </section>
-            <button type="button" id="checkout-release" class="nav-button nav-button-secondary">Release reservation</button>
+            <div class="checkout-reservation-actions">
+                <button type="button" id="checkout-release" class="nav-button nav-button-secondary">Release reservation</button>
+            </div>
         </section>
         <div class="product-actions">
             <button type="button" id="checkout-refresh" class="nav-button nav-button-secondary">Refresh availability</button>

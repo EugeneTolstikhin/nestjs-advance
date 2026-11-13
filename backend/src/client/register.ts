@@ -5,6 +5,7 @@
   const verification = document.getElementById('verification')!;
   const contacts = document.getElementById('verification-contacts')!;
   let challenge: RegistrationChallenge;
+  const otpControls: ReturnType<typeof OtpInput.attach>[] = [];
   let busy = false;
   let timer: ReturnType<typeof setInterval> | undefined;
   const countdowns: {
@@ -61,6 +62,7 @@
     challenge = nextChallenge;
     container.hidden = true;
     verification.hidden = false;
+    otpControls.splice(0).forEach((control) => control.dispose());
     contacts.replaceChildren();
     countdowns.length = 0;
     clearInterval(timer);
@@ -100,6 +102,7 @@
         resend.className = 'nav-button nav-button-secondary';
         actions.append(verify, resend);
         form.append(input, actions);
+        otpControls.push(OtpInput.attach(input));
         countdowns.push({
           button: resend,
           resendAt: contact.resendAt,
@@ -276,6 +279,9 @@
       message(error.message, true);
     }
   }
-  window.addEventListener('pagehide', () => clearInterval(timer));
+  window.addEventListener('pagehide', () => {
+    clearInterval(timer);
+    otpControls.splice(0).forEach((control) => control.dispose());
+  });
   void init();
 })();

@@ -11,6 +11,16 @@ declare global {
       isBusy?: () => boolean,
     ): void;
   };
+  var OtpInput: {
+    attach(
+      input: HTMLInputElement,
+      onChange?: (value: string) => void,
+    ): {
+      input: HTMLInputElement;
+      sync(value?: string): void;
+      dispose(): void;
+    };
+  };
   var ProductMediaUploader: typeof MediaUploader;
 
   type SurveyModel = Model;

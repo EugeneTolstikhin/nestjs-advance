@@ -10,6 +10,7 @@
   let mount: HTMLElement | undefined;
   let challenge: LoginChallenge | undefined;
   let contact: { channel: string; contact: string } | undefined;
+  let otpControl: ReturnType<typeof OtpInput.attach> | undefined;
   let busy = false;
   let timer: ReturnType<typeof setInterval> | undefined;
   SurveyKeyboard.attach(
@@ -55,6 +56,8 @@
   function showForm(verification = false) {
     // Unmount the previous renderer before disposing its model. Removing its
     // children alone leaves a stale virtual DOM attached to the same element.
+    otpControl?.dispose();
+    otpControl = undefined;
     if (mount) SurveyUI.unmountComponentAtNode(mount);
     survey?.clear();
     survey?.dispose();
@@ -75,6 +78,23 @@
       const data = { ...sender.data };
       void submit(data, verification);
     });
+    if (verification) {
+      survey.onAfterRenderQuestion.add((_sender, options) => {
+        if (options.question.name !== 'code') return;
+        const input =
+          options.htmlElement.querySelector<HTMLInputElement>('input');
+        if (!input || otpControl?.input === input) return;
+        otpControl?.dispose();
+        otpControl = OtpInput.attach(input, (value) =>
+          survey.setValue('code', value),
+        );
+      });
+      survey.onValueChanged.add((sender, options) => {
+        if (options.name === 'code') {
+          otpControl?.sync(String(sender.getValue('code') ?? ''));
+        }
+      });
+    }
     survey.render(mount);
     survey.focusFirstQuestion();
   }
@@ -127,6 +147,7 @@
   function complete() {
     clearInterval(timer);
     survey.clear();
+    otpControl?.sync('');
     message('You’re logged in. Taking you to the shop…');
     window.location.replace('/shop');
   }
@@ -139,6 +160,7 @@
     try {
       challenge = await api('/auth/login/otp', contact);
       survey.clear();
+      otpControl?.sync('');
       message(challenge!.message);
     } catch (cause) {
       const error =
@@ -164,7 +186,10 @@
     message('');
     showForm();
   });
-  window.addEventListener('pagehide', () => clearInterval(timer));
+  window.addEventListener('pagehide', () => {
+    clearInterval(timer);
+    otpControl?.dispose();
+  });
   void (async () => {
     try {
       const response = await fetch('/auth/login/schema', {

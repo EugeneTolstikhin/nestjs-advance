@@ -90,6 +90,13 @@ not log credentials, recipients or codes. Preview codes in Mailpit rather than t
 terminal for email; development phone codes appear in SMSpit. Explicit LOG phone
 delivery still writes codes to the development terminal.
 
+The branded HTML is in `src/views/emails/otp.hbs`. It uses the shop's green and
+cream palette, inline email styles and a fluid table layout, with no external
+images or stylesheets. Handlebars escapes the code, and the template is compiled
+once on first delivery. Nest copies it into the build with the other views.
+The plain-text alternative remains available. New emails use the updated design;
+messages already received in Mailpit keep their original content.
+
 ## Tests
 
 ```sh

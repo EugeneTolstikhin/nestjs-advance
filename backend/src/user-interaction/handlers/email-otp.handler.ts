@@ -1,9 +1,19 @@
 import { BadRequestException, NotImplementedException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import hbs from 'hbs';
 import { isEmail } from 'class-validator';
 import nodemailer from 'nodemailer';
 import type { OtpDeliveryOptions, OtpInterface } from '../interfaces/otp.interface';
 import type { OtpProviderSettings } from '../configs/otp.config';
+
+// Compile once on first delivery. Handlebars escapes dynamic text by default.
+let emailTemplate: ReturnType<typeof hbs.handlebars.compile> | undefined;
+function renderEmail(code: string): string {
+    emailTemplate ??= hbs.handlebars.compile(readFileSync(join(__dirname, '../../views/emails/otp.hbs'), 'utf8'));
+    return emailTemplate({ code });
+}
 
 export class EmailOtpHandler implements OtpInterface {
     constructor(readonly settings: OtpProviderSettings) {}
@@ -29,7 +39,7 @@ export class EmailOtpHandler implements OtpInterface {
                 from: smtp.from, to: recipient, subject: 'Your Nest Shop verification code',
                 messageId: identity ? `<otp-${identity}@${senderAddress.slice(senderAddress.lastIndexOf('@') + 1)}>` : undefined,
                 text: `Your Nest Shop verification code is: ${code}\n\nUse it to complete your request before it expires. If you did not request this code, ignore this email.`,
-                html: `<p>Your Nest Shop verification code is:</p><p><strong style="font-size:24px;letter-spacing:4px">${code}</strong></p><p>Use it to complete your request before it expires. If you did not request this code, ignore this email.</p>`,
+                html: renderEmail(code),
             });
             if (!result.accepted.length) throw new BadRequestException('SMTP provider rejected the recipient');
             return { message: 'OTP email accepted by SMTP server' };
