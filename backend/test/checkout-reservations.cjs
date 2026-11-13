@@ -143,6 +143,7 @@ test('the production migration supports reservations and enforces one active ses
     await db.query('DROP TABLE stock_reservations'); await db.query('DROP TABLE checkout_sessions');
     db.driver.databaseConnection.exec(readFileSync('migrations/003-checkout-reservations.sql', 'utf8'));
     db.driver.databaseConnection.exec(readFileSync('migrations/004-checkout-details.sql', 'utf8'));
+    db.driver.databaseConnection.exec(readFileSync('migrations/005-simulated-payments.sql', 'utf8'));
     const session = await reserve(buyer);
     const stored = await db.getRepository(CheckoutSession).findOneByOrFail({ id: session.id });
     await assert.rejects(db.getRepository(CheckoutSession).insert({ ...stored, id: randomUUID() }), /UNIQUE/);

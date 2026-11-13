@@ -1,0 +1,26 @@
+[
+  {
+    "id": "card",
+    "label": "Credit or debit card",
+    "description": "Test a card payment without entering card details.",
+    "provider": "simulated",
+    "method": "card",
+    "enabled": true
+  },
+  {
+    "id": "paypal",
+    "label": "PayPal",
+    "description": "Test a wallet payment without connecting a PayPal account.",
+    "provider": "simulated",
+    "method": "paypal",
+    "enabled": true
+  },
+  {
+    "id": "bank_transfer",
+    "label": "Bank transfer",
+    "description": "Test a bank transfer without sending money.",
+    "provider": "simulated",
+    "method": "bank_transfer",
+    "enabled": true
+  }
+]

@@ -14,7 +14,7 @@ export async function reservedQuantities(
     `
     SELECT r.productId, SUM(r.quantity) AS quantity
     FROM stock_reservations r JOIN checkout_sessions c ON c.id = r.checkoutId
-    WHERE c.status = 'reserved' AND c.expiresAt > ?
+    WHERE c.status = 'reserved' AND (c.expiresAt > ? OR json_extract(c.payment, '$.status') IN ('pending', 'unknown'))
       AND r.productId IN (${productIds.map(() => '?').join(',')})
       ${exceptCheckout ? 'AND c.id <> ?' : ''}
       ${exceptBuyer ? 'AND c.buyerId <> ?' : ''}

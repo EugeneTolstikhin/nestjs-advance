@@ -68,3 +68,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Local, explicitly chosen legacy product ownership mapping
 /product-owners.local.json
+
+# Legacy local provider ledger (the simulator now stores data in its own project)
+payment-simulator.sqlite*

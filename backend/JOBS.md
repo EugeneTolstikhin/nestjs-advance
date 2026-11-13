@@ -1,6 +1,6 @@
 # Background jobs
 
-OTP delivery and media processing use BullMQ and local Redis. The Nest application
+OTP delivery, media processing and payment coordination use BullMQ and local Redis. The Nest application
 starts the workers automatically; run the app normally with `npm run start:dev`.
 Keep Redis running:
 
@@ -120,3 +120,11 @@ The jobs integration suite uses local Redis with unique test prefixes, temporary
 SQLite databases and media directories. It covers provider retries, encrypted
 payloads, stale OTP skipping, worker restart, real tus uploads, processing status,
 private/public access, deletion before processing, and permanent validation failure.
+
+## Payments
+
+`payment-processing` jobs call the independent simulator through the shop's
+provider factory. Payment intents persist in SQLite before enqueueing, and a
+reconciler dispatches due work after queue failures/restarts. See
+[PAYMENTS.md](./PAYMENTS.md) for provider setup, uncertainty handling and atomic
+stock finalization. The simulator itself has no dependency on Redis or BullMQ.

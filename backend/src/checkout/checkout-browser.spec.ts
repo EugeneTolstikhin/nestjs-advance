@@ -396,4 +396,300 @@ describe('Checkout browser UI', () => {
       (window.document.querySelector('[name="fullName"]') as HappyInput).value,
     ).toBe('');
   });
+  it('starts payment with the selected option and current revision, prevents double confirmation and resumes by checkout ID', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        ...preview(),
+        checkout: { ...reservation(), step: 'review', revision: 3 },
+      }),
+    );
+    await start();
+    const intent = {
+      ...reservation(),
+      step: 'paymentPending',
+      revision: 4,
+      payment: {
+        id: 'attempt',
+        status: 'pending',
+        paymentUrl: 'http://localhost:4400/pay/token',
+        cancelRequested: false,
+      },
+      order: { id: 'order', status: 'pending', cleanup: 'pending' },
+    };
+    fetchMock.mockResolvedValue(response(intent));
+    const option = window.document.querySelector(
+      'input[name="paymentOption"]',
+    ) as HappyInput;
+    option.value = 'paypal';
+    option.checked = true;
+    element('checkout-pay').click();
+    element('checkout-pay').click();
+    await vi.waitFor(() =>
+      expect(element('checkout-payment').hidden).toBe(false),
+    );
+    const calls = fetchMock.mock.calls.filter(([path]) =>
+      path.endsWith('/payment'),
+    );
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(calls[0][1].body)).toEqual({
+      revision: 3,
+      optionId: 'paypal',
+    });
+    expect(window.location.search).toBe('?session=checkout');
+    expect(element('checkout-provider-link').getAttribute('href')).toBe(
+      'http://localhost:4400/pay/token',
+    );
+    fetchMock.mockResolvedValue(
+      response({
+        ...intent,
+        status: 'completed',
+        step: 'completed',
+        payment: { ...intent.payment, status: 'succeeded' },
+        order: { ...intent.order, status: 'paid' },
+      }),
+    );
+    window.dispatchEvent(new window.Event('focus'));
+    await vi.waitFor(() =>
+      expect(element('checkout-payment-status').textContent).toContain(
+        'confirmed',
+      ),
+    );
+    expect(
+      fetchMock.mock.calls.some(([path]) => path === '/checkout/checkout'),
+    ).toBe(true);
+    expect(element('checkout-reserve').hidden).toBe(true);
+    expect(element('checkout-provider-link').hidden).toBe(true);
+  });
+  it('clears hosted-payment capabilities and order identifiers after session expiry', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        ...preview(),
+        checkout: {
+          ...reservation(),
+          step: 'paymentPending',
+          payment: {
+            id: 'attempt',
+            status: 'pending',
+            paymentUrl: 'http://localhost:4400/pay/private-token',
+            cancelRequested: false,
+          },
+          order: { id: 'private-order', status: 'pending', cleanup: 'pending' },
+        },
+      }),
+    );
+    await start();
+    expect(element('checkout-order-reference').textContent).toContain(
+      'private-order',
+    );
+    fetchMock.mockResolvedValue(response({ message: 'Unauthorized' }, 401));
+    window.dispatchEvent(new window.Event('focus'));
+    await vi.waitFor(() =>
+      expect(element('checkout-payment').hidden).toBe(true),
+    );
+    expect(element('checkout-order-reference').textContent).toBe('');
+    expect(element('checkout-provider-link').hasAttribute('href')).toBe(false);
+  });
+  it('requires a payment method before creating a payment intent', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        ...preview(),
+        checkout: { ...reservation(), step: 'review' },
+      }),
+    );
+    await start();
+    element('checkout-pay').click();
+    expect(element('checkout-status').textContent).toContain(
+      'Choose a payment method',
+    );
+    expect(
+      fetchMock.mock.calls.some(([path]) => path.endsWith('/payment')),
+    ).toBe(false);
+  });
+  it('offers a different payment method after decline and resumes review with saved delivery details', async () => {
+    const failed = {
+      ...reservation(),
+      status: 'cancelled',
+      step: 'cancelled',
+      revision: 5,
+      delivery,
+      shipping: options[0],
+      payment: {
+        id: 'old-attempt',
+        status: 'failed',
+        paymentUrl: null,
+        cancelRequested: false,
+      },
+      order: { id: 'old-order', status: 'cancelled', cleanup: 'pending' },
+    };
+    fetchMock.mockResolvedValue(response({ ...preview(), checkout: failed }));
+    await start();
+    expect(element('checkout-retry').hidden).toBe(false);
+    const radio = window.document.querySelector(
+      'input[name="paymentOption"]',
+    ) as HappyInput;
+    radio.value = 'card';
+    radio.checked = true;
+    const next = {
+      ...reservation(),
+      id: 'replacement',
+      step: 'review',
+      delivery,
+      shipping: options[0],
+      shippingOptions: options,
+      totalCents: 749,
+    };
+    fetchMock.mockImplementation(async (path) =>
+      path.endsWith('/retry') ? response(next) : response(preview()),
+    );
+    element('checkout-retry').click();
+    element('checkout-retry').click();
+    await vi.waitFor(() =>
+      expect(element('checkout-final-review').hidden).toBe(false),
+    );
+    const calls = fetchMock.mock.calls.filter(([path]) =>
+      path.endsWith('/retry'),
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe('/checkout/checkout/retry');
+    expect(JSON.parse(calls[0][1].body)).toEqual({
+      revision: 5,
+      quoteHash: 'a'.repeat(64),
+    });
+    expect(window.location.search).toBe('?session=replacement');
+    expect(radio.checked).toBe(false);
+    expect(element('checkout-payment').hidden).toBe(true);
+    expect(element('checkout-review-total').textContent).toContain('7.49');
+    expect(window.document.activeElement?.id).toBe(
+      'checkout-final-review-title',
+    );
+    radio.value = 'paypal';
+    radio.checked = true;
+    fetchMock.mockResolvedValue(
+      response({
+        ...next,
+        step: 'paymentPending',
+        payment: {
+          id: 'new-attempt',
+          status: 'pending',
+          paymentUrl: 'http://localhost:4400/pay/new',
+          cancelRequested: false,
+        },
+      }),
+    );
+    element('checkout-pay').click();
+    await vi.waitFor(() =>
+      expect(element('checkout-payment').hidden).toBe(false),
+    );
+    const payment = fetchMock.mock.calls.find(
+      ([path]) => path === '/checkout/replacement/payment',
+    )!;
+    expect(JSON.parse(payment[1].body)).toEqual({
+      revision: 1,
+      optionId: 'paypal',
+    });
+  });
+  it.each(['pending', 'unknown', 'succeeded'])(
+    'does not offer a retry for a %s payment',
+    async (paymentStatus) => {
+      fetchMock.mockResolvedValue(
+        response({
+          ...preview(),
+          checkout: {
+            ...reservation(),
+            status: paymentStatus === 'succeeded' ? 'completed' : 'reserved',
+            payment: {
+              id: 'attempt',
+              status: paymentStatus,
+              paymentUrl: null,
+              cancelRequested: false,
+            },
+          },
+        }),
+      );
+      await start();
+      expect(element('checkout-retry').hidden).toBe(true);
+    },
+  );
+  it('keeps a failed payment visible and explains unavailable stock instead of silently starting another payment', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        ...preview(),
+        checkout: {
+          ...reservation(),
+          status: 'cancelled',
+          payment: {
+            id: 'attempt',
+            status: 'failed',
+            paymentUrl: null,
+            cancelRequested: false,
+          },
+        },
+      }),
+    );
+    await start();
+    const changed = preview();
+    changed.quote.canReserve = false;
+    changed.quote.issues = [{ message: 'Only 0 units are available.' }];
+    fetchMock.mockResolvedValue(response(changed));
+    element('checkout-retry').click();
+    await vi.waitFor(() =>
+      expect(element('checkout-status').textContent).toContain('0 units'),
+    );
+    expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/retry'))).toBe(
+      false,
+    );
+    expect(element('checkout-payment').hidden).toBe(false);
+  });
+  it('resumes an already completed replacement without requiring a nonempty cart or creating another hold', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        ...preview(),
+        checkout: {
+          ...reservation(),
+          status: 'cancelled',
+          payment: {
+            id: 'attempt',
+            status: 'failed',
+            paymentUrl: null,
+            cancelRequested: false,
+            retryCheckoutId: 'replacement',
+          },
+        },
+      }),
+    );
+    await start();
+    expect(element('checkout-retry').textContent).toBe(
+      'Resume replacement checkout',
+    );
+    fetchMock.mockResolvedValue(
+      response({
+        ...reservation(),
+        id: 'replacement',
+        status: 'completed',
+        step: 'completed',
+        payment: {
+          id: 'paid-attempt',
+          status: 'succeeded',
+          paymentUrl: null,
+          cancelRequested: false,
+        },
+      }),
+    );
+    element('checkout-retry').click();
+    await vi.waitFor(() =>
+      expect(element('checkout-payment-status').textContent).toContain(
+        'confirmed',
+      ),
+    );
+    expect(window.location.search).toBe('?session=replacement');
+    expect(
+      fetchMock.mock.calls.some(([path]) => path === '/checkout/replacement'),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.filter(([path]) => path === '/checkout/data'),
+    ).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.some(([, options]) => options.method === 'POST'),
+    ).toBe(false);
+  });
 });

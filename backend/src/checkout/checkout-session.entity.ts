@@ -1,5 +1,6 @@
 import { Check, Column, Entity, Index, PrimaryColumn } from 'typeorm';
 import type { DeliveryDetails, ShippingQuote } from './shipping';
+import type { PaymentRecord, OrderRecord } from '../payments/payment-records';
 
 export interface CheckoutLine {
   productId: string;
@@ -12,11 +13,14 @@ export interface CheckoutLine {
 
 @Entity('checkout_sessions')
 @Index('IDX_checkout_expiry', ['status', 'expiresAt'])
-@Check('CHK_checkout_status', "status IN ('reserved', 'cancelled', 'expired')")
+@Check(
+  'CHK_checkout_status_v2',
+  "status IN ('reserved', 'cancelled', 'expired', 'completed')",
+)
 export class CheckoutSession {
   @PrimaryColumn('text')
   id: string;
-  
+
   @Index('IDX_checkout_buyer')
   @Column('text')
   buyerId: string;
@@ -27,7 +31,7 @@ export class CheckoutSession {
   activeBuyerId: string | null;
 
   @Column('text')
-  status: 'reserved' | 'cancelled' | 'expired';
+  status: 'reserved' | 'cancelled' | 'expired' | 'completed';
 
   @Column('integer')
   expiresAt: number;
@@ -64,6 +68,10 @@ export class CheckoutSession {
 
   @Column('simple-json', { nullable: true })
   shipping: ShippingQuote | null;
+
+  @Column('simple-json', { nullable: true }) payment: PaymentRecord | null;
+  @Column('simple-json', { nullable: true }) order: OrderRecord | null;
+  @Column('integer', { nullable: true }) cartRevision: number | null;
 }
 
 @Entity('stock_reservations')

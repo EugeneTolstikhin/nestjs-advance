@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{title}} | Nest Shop</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-    <link rel="stylesheet" href="/assets/styles.css?v=13">
-    <script src="/assets/checkout.js" defer></script>
+    <link rel="stylesheet" href="/assets/styles.css?v=17">
+    <script src="/assets/checkout.js?v=4" defer></script>
 </head>
 <body>
     {{> navbar}}
@@ -76,15 +76,38 @@
                     <dt>Shipping</dt><dd id="checkout-review-shipping"></dd>
                     <dt>Total</dt><dd id="checkout-review-total"></dd>
                 </dl>
-                <p>Payment is the next implementation step. No order has been placed. The reservation expires at the original deadline.</p>
+                <p>Review the total and choose a payment method. Options marked as simulated do not charge real money.</p>
+                {{#if paymentsEnabled}}
+                <fieldset id="checkout-payment-options">
+                    <legend>Choose a payment method</legend>
+                    {{#each paymentOptions}}
+                    <label class="checkout-payment-option">
+                        <input type="radio" name="paymentOption" value="{{id}}">
+                        <span><strong>{{label}}{{#if simulated}} (simulated){{/if}}</strong><br>{{description}}</span>
+                    </label>
+                    {{/each}}
+                </fieldset>
+                {{/if}}
                 <div class="checkout-actions">
                     <button type="button" data-checkout-back class="nav-button nav-button-secondary">Change shipping</button>
-                    <button type="button" class="nav-button nav-button-primary" disabled>Payment coming next</button>
+                    {{#if paymentsEnabled}}<button type="button" id="checkout-pay" class="nav-button nav-button-primary">Continue to payment</button>{{else}}<p>Payments are disabled. Configure the local payment simulator to continue.</p>{{/if}}
                 </div>
             </section>
             <div class="checkout-reservation-actions">
                 <button type="button" id="checkout-release" class="nav-button nav-button-secondary">Release reservation</button>
             </div>
+        </section>
+        <section id="checkout-payment" class="checkout-panel" hidden aria-labelledby="checkout-payment-title">
+            <p class="eyebrow">Payment</p>
+            <p id="checkout-payment-method"></p>
+            <h2 id="checkout-payment-title" tabindex="-1">Payment status</h2>
+            <p id="checkout-payment-status" role="status" aria-live="polite"></p>
+            <p id="checkout-order-reference"></p>
+            <p id="checkout-payment-note">The shop checks the provider directly; returning here does not prove payment.</p>
+            <a id="checkout-provider-link" class="nav-button nav-button-primary" target="_blank" rel="noopener noreferrer" hidden>Open payment provider</a>
+            <button type="button" id="checkout-retry" class="nav-button nav-button-primary" hidden>Try another payment method</button>
+            <p id="checkout-retry-note" class="auth-note" hidden>We’ll recheck your cart and reserve available items again. Your delivery details are kept; review the latest total and choose a payment method before paying.</p>
+            <a class="nav-button nav-button-secondary" href="/shop">Continue shopping</a>
         </section>
         <div class="product-actions">
             <button type="button" id="checkout-refresh" class="nav-button nav-button-secondary">Refresh availability</button>

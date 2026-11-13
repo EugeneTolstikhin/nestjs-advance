@@ -151,3 +151,27 @@ test('delivery and shipping reject forged totals, invalid addresses, stale versi
     assert.equal(await db.getRepository(StockReservation).countBy({ checkoutId: held.id }), 0);
     assert.equal((await db.getRepository(CheckoutSession).findOneByOrFail({ id: held.id })).status, 'expired');
 });
+
+test('payment confirmation is a guarded command and never accepts browser-supplied amounts or success events', async () => {
+    const held = (await reserve(buyer)).body;
+    const path = `/checkout/${held.id}/payment`;
+    await api.post(path).send({ revision: 1 }).expect(401);
+    await as(api.post(path), seller).send({ revision: 1 }).expect(403);
+    for (const payload of [{ revision: 1, optionId: 'card', amountCents: 1 }, { revision: 1, optionId: 'card', status: 'succeeded' }, { revision: 1, optionId: 'card', event: 'PAYMENT_SUCCEEDED' }, { revision: 0, optionId: 'card' }, { revision: 1 }])
+        await as(api.post(path)).send(payload).expect(400);
+    await as(api.post(path)).set('Origin', 'https://attacker.test').send({ revision: 1 }).expect(403);
+});
+
+
+test('payment retry is buyer-only, revision/quote-validated and unavailable for a live reservation', async () => {
+    const held = (await reserve(buyer)).body;
+    const path = `/checkout/${held.id}/retry`;
+    const body = { revision: held.revision, quoteHash: (await quote(buyer)).quoteHash };
+    await api.post(path).send(body).expect(401);
+    await as(api.post(path), seller).send(body).expect(403);
+    await as(api.post(path), other).send(body).expect(404);
+    await as(api.post(path)).send({ ...body, event: 'PAYMENT_FAILED' }).expect(400);
+    await as(api.post(path)).send({ revision: 1 }).expect(400);
+    await as(api.post(path)).set('Origin', 'https://attacker.test').send(body).expect(403);
+    await as(api.post(path)).send(body).expect(409);
+});

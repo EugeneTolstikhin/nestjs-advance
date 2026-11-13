@@ -62,3 +62,11 @@ export class SelectShippingDto extends CheckoutRevisionDto {
   @IsIn(['standard', 'express'])
   method: 'standard' | 'express';
 }
+
+export class StartPaymentDto extends CheckoutRevisionDto {
+  @IsString() @Matches(/^[a-z][a-z0-9_]{1,39}$/) optionId: string;
+}
+
+export class RetryCheckoutDto extends CheckoutRevisionDto {
+  @IsString() @Matches(/^[a-f0-9]{64}$/) quoteHash: string;
+}

@@ -205,3 +205,7 @@ input[data-otp-source] { position: absolute !important; width: 1px !important; h
 .sd-formbox:has([data-otp-source]) { padding: 0; background: transparent; box-shadow: none; border: 0; }
 .sd-question:has([data-otp-source]) .sd-formbox__character-counter { display: none; }
 .otp-digits input { letter-spacing: normal; }
+
+.checkout-payment-option { display: flex; align-items: flex-start; gap: 12px; margin: 12px 0; padding: 16px; border: 1px solid #dddcd4; border-radius: 8px; cursor: pointer; }
+.checkout-payment-option input { margin-top: 5px; accent-color: #526b44; }
+.checkout-payment-option:has(input:checked) { background: #f1f4eb; border-color: #526b44; }

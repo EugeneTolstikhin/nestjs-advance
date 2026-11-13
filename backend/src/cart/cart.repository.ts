@@ -8,6 +8,7 @@ export interface StoredCart {
     items: Record<string, number>;
     createdAt: Date;
     updatedAt: Date;
+    revision?: number;
 }
 
 @Injectable()
@@ -50,7 +51,7 @@ export class CartRepository implements OnModuleDestroy {
                 { $lt: [{ $ifNull: [`$${path}`, 0] }, maxQuantity] },
                 { $or: [ { $ne: [{ $type: `$${path}` }, 'missing'] },
                     { $lt: [{ $size: { $objectToArray: '$items' } }, CART_MAX_PRODUCTS] } ] },
-            ] } }, { $inc: { [path]: 1 }, $set: { updatedAt: new Date() } }, { returnDocument: 'after' });
+            ] } }, { $inc: { [path]: 1, revision: 1 }, $set: { updatedAt: new Date() } }, { returnDocument: 'after' });
             if (!cart) throw new ConflictException(`Cart limit reached: up to ${maxQuantity} units of this product, subject to stock, and ${CART_MAX_PRODUCTS} different products.`);
             return cart;
         });
@@ -59,7 +60,7 @@ export class CartRepository implements OnModuleDestroy {
         return this.run(async collection => {
             const path = `items.${productId}`;
             const cart = await collection.findOneAndUpdate({ _id: userId, [path]: { $gte: 1 } }, [
-                { $set: { [path]: { $cond: [{ $eq: [`$${path}`, 1] }, '$$REMOVE', { $subtract: [`$${path}`, 1] }] }, updatedAt: '$$NOW' } },
+                { $set: { [path]: { $cond: [{ $eq: [`$${path}`, 1] }, '$$REMOVE', { $subtract: [`$${path}`, 1] }] }, updatedAt: '$$NOW', revision: { $add: [{ $ifNull: ['$revision', 0] }, 1] } } },
             ], { returnDocument: 'after' });
             if (!cart) throw new NotFoundException('This product is not in your cart');
             return cart;
@@ -67,8 +68,17 @@ export class CartRepository implements OnModuleDestroy {
     }
     async remove(userId: string, productId: string) {
         await this.run(collection => collection.updateOne({ _id: userId }, {
-            $unset: { [`items.${productId}`]: '' }, $set: { updatedAt: new Date() },
+            $unset: { [`items.${productId}`]: '' }, $inc: { revision: 1 }, $set: { updatedAt: new Date() },
         }));
+    }
+    async clearPurchasedIfUnchanged(userId: string, items: { productId: string }[], revision: number) {
+        return this.run(async collection => {
+            const result = await collection.updateOne({ _id: userId, $expr: { $eq: [{ $ifNull: ['$revision', 0] }, revision] } }, {
+                $unset: Object.fromEntries(items.map(item => [`items.${item.productId}`, ''])),
+                $inc: { revision: 1 }, $set: { updatedAt: new Date() },
+            });
+            return result.modifiedCount > 0;
+        });
     }
     async onModuleDestroy() { await this.client?.close(); }
 }

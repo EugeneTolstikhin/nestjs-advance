@@ -9,6 +9,8 @@ See [OWNERSHIP.md](./OWNERSHIP.md) for seller access rules and assigning legacy 
 
 See [CHECKOUT.md](./CHECKOUT.md) for cart reservations, delivery/shipping/review UI, the state-machine demo and the payment/invoice roadmap.
 
+See [PAYMENTS.md](./PAYMENTS.md) for the independent payment simulator, provider factory and BullMQ payment flow.
+
 ## Handlebars UI
 
 The HTML UI is rendered by NestJS inside `backend/`; no separate frontend project

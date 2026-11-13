@@ -13,24 +13,22 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import {
-  IsInt,
-  IsString,
-  IsUUID,
-  Matches,
-  Min
-} from 'class-validator';
+import { IsInt, IsString, IsUUID, Matches, Min } from 'class-validator';
 import { SessionAuthGuard } from '../auth/guard/session-auth.guard';
 import { SameOriginGuard } from '../auth/guard/same-origin.guard';
 import { Roles } from '../auth/guard/roles.decorator';
 import { TypeOfUser } from '../auth/auth.dto';
 import type { AuthRequest } from '../auth/utils/auth-request';
+import { PaymentsService } from '../payments/payments.service';
+import { PaymentProviderFactory } from '../payments/payment-provider';
 import { MaskPii } from '../interceptor/pii/mask-pii.decorator';
 import { CheckoutService } from './checkout.service';
 import {
   CheckoutRevisionDto,
   DeliveryDetailsDto,
   SelectShippingDto,
+  StartPaymentDto,
+  RetryCheckoutDto,
 } from './checkout-details.dto';
 
 class CheckoutIdDto {
@@ -53,12 +51,20 @@ class CancelCheckoutDto {
 @Roles(TypeOfUser.Buyer)
 @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 export class CheckoutController {
-  constructor(private readonly checkout: CheckoutService) {}
+  constructor(
+    private readonly checkout: CheckoutService,
+    private readonly payments: PaymentsService,
+    private readonly providers: PaymentProviderFactory,
+  ) {}
   @Get()
   @Header('Cache-Control', 'no-store')
   @Render('checkout')
   page() {
-    return { title: 'Checkout' };
+    return {
+      title: 'Checkout',
+      paymentsEnabled: this.providers.options().length > 0,
+      paymentOptions: this.providers.options(),
+    };
   }
 
   @Get('data')
@@ -94,6 +100,44 @@ export class CheckoutController {
     @Body() body: SelectShippingDto,
   ) {
     return this.checkout.selectShipping(request.user!.sub, params.id, body);
+  }
+
+  @Get('payment-options')
+  @Header('Cache-Control', 'no-store')
+  paymentOptions() {
+    return this.providers.options();
+  }
+
+  @Post(':id/payment')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  payment(
+    @Req() request: AuthRequest,
+    @Param() params: CheckoutIdDto,
+    @Body() body: StartPaymentDto,
+  ) {
+    return this.payments.start(
+      request.user!.sub,
+      params.id,
+      body.revision,
+      body.optionId,
+    );
+  }
+
+  @Post(':id/retry')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  retry(
+    @Req() request: AuthRequest,
+    @Param() params: CheckoutIdDto,
+    @Body() body: RetryCheckoutDto,
+  ) {
+    return this.checkout.retry(
+      request.user!.sub,
+      params.id,
+      body.revision,
+      body.quoteHash,
+    );
   }
 
   @Post(':id/back')

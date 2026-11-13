@@ -58,77 +58,148 @@ export class CheckoutService {
 
   async reserve(buyerId: string, quoteHash: string) {
     const cart = await this.carts.get(buyerId);
-    const result = await this.products.withStockTransaction(async (manager) => {
-      const now = Date.now();
-      await this.expire(manager, now);
-      const active = await manager.findOneBy(CheckoutSession, {
-        activeBuyerId: buyerId,
-      });
-      if (active) {
-        if (active.quoteHash !== quoteHash)
-          throw new ConflictException(
-            'You already have a reservation. Release it before checking out a different cart.',
-          );
-        return this.view(active); // Idempotent retries never extend the fixed deadline.
-      }
-      const quote = await this.quote(manager, cart);
-      if (quote.issues.length)
-        throw new ConflictException({
-          message: 'Your cart needs attention before items can be reserved.',
-          issues: quote.issues,
-        });
-      if (quote.quoteHash !== quoteHash)
-        throw new ConflictException(
-          'Your cart or prices changed. Refresh and review the updated items before reserving.',
-        );
-      const session = manager.create(CheckoutSession, {
-        id: randomUUID(),
-        buyerId,
-        activeBuyerId: buyerId,
-        status: 'reserved',
-        expiresAt: now + RESERVATION_MS,
-        createdAt: now,
-        revision: 1,
-        machineVersion: 1,
-        quoteHash,
-        cartHash: quote.cartHash,
-        items: quote.items,
-        subtotalCents: quote.subtotalCents,
-        currency: 'EUR',
-      });
-      const actor = createActor(checkoutMachine, {
-        input: { checkoutId: session.id, buyerId },
-        logger: () => {},
-      }).start();
-      try {
-        actor.send({ type: 'START' });
-        actor.send({ type: 'CART_VALIDATED' });
-        session.machineSnapshot = JSON.parse(
-          JSON.stringify(actor.getPersistedSnapshot()),
-        );
-        await manager.save(CheckoutSession, session);
-        // The shared SQLite write transaction includes every reservation line.
-        // Availability was checked in this transaction; no partial hold can commit.
-        await manager.insert(
-          StockReservation,
-          quote.items.map((item) => ({
-            checkoutId: session.id,
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
-        );
-        actor.send({ type: 'STOCK_RESERVED' });
-        session.machineSnapshot = JSON.parse(
-          JSON.stringify(actor.getPersistedSnapshot()),
-        );
-        await manager.save(CheckoutSession, session);
-      } finally {
-        actor.stop();
-      }
-      return this.view(session);
-    });
+    const result = await this.products.withStockTransaction((manager) =>
+      this.reserveCart(manager, buyerId, quoteHash, cart),
+    );
     this.logger.log(`Checkout ${result.id}: reservation confirmed`);
     return result;
+  }
+
+  private async reserveCart(
+    manager: EntityManager,
+    buyerId: string,
+    quoteHash: string,
+    cart: StoredCart | null,
+  ) {
+    const now = Date.now();
+    await this.expire(manager, now);
+    const active = await manager.findOneBy(CheckoutSession, {
+      activeBuyerId: buyerId,
+    });
+    if (active) {
+      if (active.quoteHash !== quoteHash)
+        throw new ConflictException(
+          'You already have a reservation. Release it before checking out a different cart.',
+        );
+      return this.view(active); // Idempotent retries never extend the fixed deadline.
+    }
+    const quote = await this.quote(manager, cart);
+    if (quote.issues.length)
+      throw new ConflictException({
+        message: 'Your cart needs attention before items can be reserved.',
+        issues: quote.issues,
+      });
+    if (quote.quoteHash !== quoteHash)
+      throw new ConflictException(
+        'Your cart or prices changed. Refresh and review the updated items before reserving.',
+      );
+    const session = manager.create(CheckoutSession, {
+      id: randomUUID(),
+      buyerId,
+      activeBuyerId: buyerId,
+      status: 'reserved',
+      expiresAt: now + RESERVATION_MS,
+      createdAt: now,
+      revision: 1,
+      machineVersion: 1,
+      cartRevision: cart?.revision ?? 0,
+      quoteHash,
+      cartHash: quote.cartHash,
+      items: quote.items,
+      subtotalCents: quote.subtotalCents,
+      currency: 'EUR',
+    });
+    const actor = createActor(checkoutMachine, {
+      input: { checkoutId: session.id, buyerId },
+      logger: () => {},
+    }).start();
+    try {
+      actor.send({ type: 'START' });
+      actor.send({ type: 'CART_VALIDATED' });
+      session.machineSnapshot = JSON.parse(
+        JSON.stringify(actor.getPersistedSnapshot()),
+      );
+      await manager.save(CheckoutSession, session);
+      // The shared SQLite write transaction includes every reservation line.
+      // Availability was checked in this transaction; no partial hold can commit.
+      await manager.insert(
+        StockReservation,
+        quote.items.map((item) => ({
+          checkoutId: session.id,
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+      );
+      actor.send({ type: 'STOCK_RESERVED' });
+      session.machineSnapshot = JSON.parse(
+        JSON.stringify(actor.getPersistedSnapshot()),
+      );
+      await manager.save(CheckoutSession, session);
+    } finally {
+      actor.stop();
+    }
+    return this.view(session);
+  }
+
+  async retry(
+    buyerId: string,
+    id: string,
+    revision: number,
+    quoteHash: string,
+  ) {
+    const cart = await this.carts.get(buyerId);
+    return this.products.withStockTransaction(async (manager) => {
+      await this.expire(manager);
+      const previous = await this.owned(manager, buyerId, id);
+      if (
+        !previous.payment ||
+        !['failed', 'cancelled', 'expired'].includes(previous.payment.status) ||
+        !['cancelled', 'expired'].includes(previous.status) ||
+        previous.order?.status === 'paid'
+      )
+        throw new ConflictException(
+          'Wait for a confirmed decline, cancellation or expiry before trying another payment.',
+        );
+      // A lost response or another device must resume the same replacement checkout.
+      if (previous.payment.retryCheckoutId)
+        return this.view(
+          await this.owned(manager, buyerId, previous.payment.retryCheckoutId),
+        );
+      if (previous.revision !== revision)
+        throw new ConflictException(
+          'Checkout changed. Refresh before retrying.',
+        );
+      if (await manager.findOneBy(CheckoutSession, { activeBuyerId: buyerId }))
+        throw new ConflictException(
+          'You already have an active checkout. Resume it before starting another.',
+        );
+      const reserved = await this.reserveCart(
+        manager,
+        buyerId,
+        quoteHash,
+        cart,
+      );
+      const next = await this.owned(manager, buyerId, reserved.id);
+      // Preserve saved delivery choices, but recompute shipping for the current
+      // cart/sellers/rates and return to review. No payment is started here.
+      if (previous.delivery) {
+        next.delivery = previous.delivery;
+        this.transition(next, [{ type: 'DELIVERY_ACCEPTED' }]);
+        const shipping =
+          previous.shipping &&
+          shippingOptions(next.items, next.delivery.country).find(
+            (option) => option.method === previous.shipping!.method,
+          );
+        if (shipping) {
+          next.shipping = shipping;
+          this.transition(next, [{ type: 'SHIPPING_SELECTED' }]);
+        }
+      }
+      previous.payment.retryCheckoutId = next.id;
+      previous.revision++;
+      await manager.save(CheckoutSession, [previous, next]);
+      return this.view(next);
+    });
   }
 
   async get(buyerId: string, id: string) {
@@ -143,6 +214,18 @@ export class CheckoutService {
       await this.expire(manager);
       const session = await this.owned(manager, buyerId, id);
       if (session.status !== 'reserved') return this.view(session);
+      if (
+        session.payment &&
+        ['pending', 'unknown'].includes(session.payment.status)
+      ) {
+        if (session.revision !== revision)
+          throw new ConflictException('Refresh checkout before cancelling.');
+        session.payment.cancelRequested = true;
+        session.payment.nextCheckAt = Date.now();
+        session.revision++;
+        await manager.save(CheckoutSession, session);
+        return this.view(session);
+      }
       if (session.revision !== revision)
         throw new ConflictException(
           'This checkout changed. Refresh before cancelling.',
@@ -243,7 +326,7 @@ export class CheckoutService {
     return session;
   }
 
-  private transition(session: CheckoutSession, events: CheckoutEvent[]) {
+  transition(session: CheckoutSession, events: CheckoutEvent[]) {
     if (session.machineVersion !== 1)
       throw new ConflictException('Unsupported checkout version');
     const actor = createActor(checkoutMachine, {
@@ -274,6 +357,12 @@ export class CheckoutService {
       where: { status: 'reserved', expiresAt: LessThanOrEqual(now) },
     });
     for (const session of sessions) {
+      // An uncertain provider result pins stock until authenticated reconciliation.
+      if (
+        session.payment &&
+        ['pending', 'unknown'].includes(session.payment.status)
+      )
+        continue;
       this.transition(session, [{ type: 'RESERVATION_EXPIRED' }]);
       session.status = 'expired';
       session.activeBuyerId = null;
@@ -382,7 +471,7 @@ export class CheckoutService {
     };
   }
 
-  private view(session: CheckoutSession) {
+  view(session: CheckoutSession) {
     return {
       serverNow: Date.now(),
       id: session.id,
@@ -393,9 +482,36 @@ export class CheckoutService {
       subtotalCents: session.subtotalCents,
       currency: session.currency,
       step: session.machineSnapshot.value,
-      phase: 'checkout' as const,
-      paymentStatus: 'not_started' as const,
-      fulfillmentStatus: 'not_started' as const,
+      phase:
+        session.status === 'completed'
+          ? 'completed'
+          : session.payment
+            ? 'payment'
+            : 'checkout',
+      paymentStatus: session.payment?.status ?? 'not_started',
+      fulfillmentStatus:
+        session.order?.status === 'paid' ? 'unfulfilled' : 'not_started',
+      payment: session.payment
+        ? {
+            id: session.payment.id,
+            status: session.payment.status,
+            lastFailure: session.payment.lastFailure ?? null,
+            retryCheckoutId: session.payment.retryCheckoutId,
+            paymentUrl: session.payment.paymentUrl,
+            cancelRequested: session.payment.cancelRequested,
+            optionId: session.payment.optionId,
+            optionLabel: session.payment.optionLabel,
+            simulated: session.payment.simulated ?? true,
+          }
+        : null,
+      order: session.order
+        ? {
+            id: session.order.id,
+            status: session.order.status,
+            sellerOrders: session.order.sellerOrders,
+            cleanup: session.order.cleanup,
+          }
+        : null,
       delivery: session.delivery ?? null,
       shipping: session.shipping ?? null,
       shippingOptions: session.delivery

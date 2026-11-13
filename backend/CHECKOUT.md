@@ -5,7 +5,7 @@
 Implemented: `/cart` now links to `/checkout`. Authenticated buyers can review
 server-calculated item prices, reserve the selected cart for 15 minutes, resume
 that hold on another device, and release it. Delivery, shipping and review are also implemented (see the next milestone below).
-Payment, order placement, fulfillment and invoices remain future work.
+The independent simulated provider and paid-order finalization are now implemented; see [PAYMENTS.md](./PAYMENTS.md). Fulfillment tooling, real payments and invoices remain future work.
 
 The server reads the buyer's MongoDB cart, validates every product/quantity/price
 and assigned seller, and compares a canonical quote hash before reserving. The
@@ -70,12 +70,11 @@ data and the matching machine snapshot in the same SQL transaction. The browser
 cannot send XState events or advance straight to payment. Existing snapshot
 state names remain compatible; no machine-version migration is needed.
 
-The owner-only response explicitly distinguishes `phase: "checkout"`,
-`paymentStatus: "not_started"` and `fulfillmentStatus: "not_started"`. These last
-two are milestone boundary markers, not implemented payment/fulfillment engines.
-Later payment status and seller shipment/fulfillment status will have their own
-durable records. Choosing a shipping method now does **not** create a shipment,
-charge money, finalize an order or generate an invoice.
+The owner-only response distinguishes checkout/payment/completed phases, the
+persisted payment status, and fulfillment status. Pending parent/seller order
+snapshots and the independent simulated payment flow are described in
+[PAYMENTS.md](./PAYMENTS.md). Choosing shipping does not itself create a shipment
+or charge anything; fulfillment tools and invoices remain separate future work.
 
 Delivery requires a full name, street/house-number line, five-digit postal code,
 city, country `DE`, and **at least one valid email or international phone number**.
@@ -114,9 +113,10 @@ expiry. Own delivery data is deliberately exempt from the global PII mask, so
 editing never sends a masked email/phone back to the server; ownership guards and
 `no-store` headers protect the endpoints. Addresses/contacts are not logged.
 
-The last screen deliberately stops at review with “Payment coming next”. The next
-milestone is creating pending parent/seller orders from these snapshots, then
-starting the separate payment flow. Fulfillment follows a confirmed order.
+Review now offers **Continue to test payment** when the simulator is configured.
+The sibling provider application and shop-side workers handle payment; no browser
+event can assert success. See [PAYMENTS.md](./PAYMENTS.md) for the flow, setup,
+SQL migration and recovery behavior.
 
 ## Milestone 1: state machine and transition logs
 
@@ -245,11 +245,11 @@ a buyer UI; delivery/shipping/review is now complete too. Subsequent items remai
    addresses, seller-grouped shipping, integer-cent EUR quotes and explicit
    review, saved delivery/shipping and revision-checked back navigation. An empty/invalid cart or a product
    without an assigned seller cannot proceed.
-4. [ ] **Add pending orders and extend reservations into the order workflow.** Parent order plus seller
-   orders, immutable item/address/price snapshots, reservation deadlines, atomic
+4. [x] **Add pending orders and extend reservations into the order workflow.** Parent and seller
+   order snapshots persisted within the checkout row, immutable item/address/price snapshots, reservation deadlines, atomic
    availability checks and seller stock corrections that respect reservations.
    Carts continue not to reserve stock.
-5. [ ] **Implement simulated payments and atomic finalization.** Success/rejection/
+5. [x] **Implement simulated payments and atomic finalization.** Success/rejection/
    unknown outcomes, verified expiry/cancellation, duplicate notifications,
    stock deduction and order/outbox commit together. Use the existing
    `withStockTransaction`/`deductStock` boundary. Schedule idempotent MongoDB cart
