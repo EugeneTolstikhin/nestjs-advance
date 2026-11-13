@@ -1,0 +1,100 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1"
+    />
+    <title>Test payment · Nest Shop simulator</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px 16px;
+        background: #f7f6f2;
+        color: #242b25;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 560px;
+        margin: 32px auto;
+        padding: 28px;
+        background: #fff;
+        border: 1px solid #dddcd4;
+        border-radius: 12px;
+      }
+      h1 {
+        font:
+          36px Georgia,
+          serif;
+      }
+      .badge {
+        color: #526b44;
+        font-weight: 700;
+        letter-spacing: 2px;
+      }
+      .amount {
+        font-size: 32px;
+        font-weight: 700;
+      }
+      form {
+        display: grid;
+        gap: 12px;
+      }
+      button,
+      a {
+        font: inherit;
+      }
+      button {
+        border: 1px solid #526b44;
+        padding: 12px;
+        border-radius: 7px;
+        color: #3b5330;
+        background: #fff;
+        cursor: pointer;
+      }
+      button[value="approve"] {
+        background: #526b44;
+        color: #fff;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #526b44;
+        outline-offset: 3px;
+      }
+      .notice {
+        padding: 12px;
+        background: #f6edcf;
+        border-radius: 6px;
+      }
+      small {
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="badge">NEST SHOP · TEST PROVIDER</p>
+      <h1>Simulated payment</h1>
+      <p class="notice">Development only. No real money
+        is charged. Do not enter card or bank details.</p>
+      <p class="amount">{{amount}}</p>
+      <p>Simulated method: <strong>{{method}}</strong></p>
+      <small>Payment reference: {{reference}}</small>
+      {{#if pending}}
+        <p>Choose an outcome to test the shop’s payment flow.</p>
+        <form method="post">
+          <button name="decision" value="approve">Approve test payment</button>
+          <button name="decision" value="decline">Decline test payment</button>
+          <button name="decision" value="delayed">Approve, then simulate a 10-second outage</button>
+          <button name="decision" value="cancel">Cancel test payment</button>
+        </form>
+      {{else}}
+        <p>Provider status: <strong>{{status}}</strong></p>
+        <p>This result is saved and cannot be changed.</p>
+        <a href="{{returnUrl}}">Return to checkout</a>
+      {{/if}}
+    </main>
+  </body>
+</html>

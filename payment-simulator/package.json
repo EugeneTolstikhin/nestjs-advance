@@ -1,0 +1,34 @@
+{
+  "name": "nest-shop-payment-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Independent local payment provider simulator for Nest Shop",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.cjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "npm run build && node dist/main.js",
+    "start:dev": "node --watch --watch-path=src scripts/dev.cjs",
+    "test": "npm run build && node --test test/*.cjs",
+    "start:built": "node dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.2.0",
+    "@nestjs/core": "12.2.0",
+    "@nestjs/platform-express": "12.2.0",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "hbs": "4.4.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/hbs": "4.0.5",
+    "@types/node": "24.19.2",
+    "typescript": "6.0.3"
+  }
+}
