@@ -40,7 +40,8 @@
     "checkout:demo": "tsc -p tsconfig.checkout-demo.json && node .tmp/checkout-demo/checkout.demo.js",
     "test:checkout": "vitest run src/checkout/",
     "test:checkout:integration": "npm run build && node --test test/checkout-schema.cjs test/checkout-reservations.cjs test/checkout.e2e.cjs",
-    "test:payments": "npm run build && npm --prefix ../payment-simulator run build && node --test test/checkout-schema.cjs test/payments.cjs"
+    "test:payments": "npm run build && npm --prefix ../payment-simulator run build && node --test test/checkout-schema.cjs test/payments.cjs",
+    "test:orders": "npm run build && npm --prefix ../delivery-simulator run build && node --test test/order-confirmation.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -58,6 +59,7 @@
     "hbs": "^4.4.0",
     "mongodb": "^7.8.0",
     "nodemailer": "^10.3.1",
+    "pdfkit": "^0.20.2",
     "redis": "^6.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -78,6 +80,7 @@
     "@types/hbs": "^4.0.5",
     "@types/node": "^24.0.0",
     "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.17.7",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
     "happy-dom": "^21.0.4",

@@ -468,6 +468,9 @@
     if (retryNote) retryNote.hidden = true;
     document.getElementById('checkout-payment-status')?.replaceChildren();
     document.getElementById('checkout-order-reference')?.replaceChildren();
+    const confirmation = document.getElementById('checkout-confirmation-link');
+    confirmation?.removeAttribute('href');
+    if (confirmation) confirmation.hidden = true;
     document.getElementById('checkout-payment-method')?.replaceChildren();
     document.getElementById('checkout-payment-note')?.replaceChildren();
     const link = document.getElementById('checkout-provider-link');
@@ -485,6 +488,14 @@
       return;
     }
     const payment = session.payment;
+    const confirmation = document.getElementById(
+      'checkout-confirmation-link',
+    ) as HTMLAnchorElement | null;
+    if (confirmation) {
+      confirmation.hidden = session.status !== 'completed';
+      if (!confirmation.hidden) confirmation.href = `/orders/${session.id}`;
+      else confirmation.removeAttribute('href');
+    }
     const canRetry =
       !!payButton &&
       ['failed', 'cancelled', 'expired'].includes(payment.status) &&
@@ -513,7 +524,7 @@
       note.textContent = `${simulated ? 'No real money is charged. ' : ''}The shop checks the provider directly; returning here does not prove payment.`;
     const text =
       payment.status === 'succeeded'
-        ? `${prefix} confirmed. Your order is complete and stock has been updated. Delivery has not started.`
+        ? `${prefix} confirmed. Your order is complete and stock has been updated. View confirmation for your invoices and delivery tracking.`
         : payment.cancelRequested &&
             ['pending', 'unknown'].includes(payment.status)
           ? 'Cancellation requested. Waiting for the provider to confirm whether payment was cancelled or already completed.'

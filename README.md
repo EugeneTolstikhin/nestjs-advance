@@ -48,3 +48,15 @@ Configure matching `PAYMENT_SIMULATOR_SECRET` values in the two applications.
 See [provider setup](payment-simulator/README.md) and the
 [shop payment flow](backend/PAYMENTS.md). The simulator uses no real money and has
 its own dependencies, build, environment and database.
+
+## Delivery simulator and order confirmation
+
+```sh
+npm --prefix delivery-simulator ci
+npm --prefix delivery-simulator run start:dev
+```
+
+Open http://localhost:4500 to update tracking statuses. Paid orders receive private
+PDF demo invoices, tracking details and asynchronous email notifications.
+See [confirmation setup and behavior](backend/ORDERS.md) and the
+[independent carrier app](delivery-simulator/README.md).

@@ -1,3 +1,4 @@
+import { EmailModule } from './email/email.module';
 import { Module } from '@nestjs/common';
 import { UserInteractionController } from './user-interaction.controller';
 import { UserInteractionService } from './user-interaction.service';
@@ -9,7 +10,7 @@ import { QueuedOtpFactory } from './queued-otp.factory';
 import { EnvironmentOtpConfigSource } from './configs/env-otp.config';
 
 @Module({
-  imports: [AuthStorageModule, JobsModule],
+  imports: [AuthStorageModule, JobsModule, EmailModule],
   controllers: [UserInteractionController],
   providers: [
     SameOriginGuard,

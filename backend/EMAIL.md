@@ -110,3 +110,18 @@ uses isolated Redis keys, and verifies registration/login through the real BullM
 and SMTP path. It does not use or delete messages in your existing Mailpit inbox,
 and does not contact a production provider. `TEST_REDIS_URL` and
 `TEST_MAILPIT_BINARY` can override local test dependencies.
+
+## Shared email delivery
+
+OTP and order confirmation/status emails use the same `EmailModule` and
+`EmailProviderFactory` (`src/user-interaction/email/`). Both compose a generic
+`EmailMessage` and call `EmailProvider.send()`; only the SMTP adapter imports
+Nodemailer. SMTP configuration, timeouts, attachment handling, stable Message-IDs,
+transport cleanup and sanitized errors are implemented once. Add a new provider
+adapter behind this interface and select it in the factory.
+
+`EmailOtpHandler` owns six-digit validation, expiry and the OTP template. The order
+confirmation service owns order templates and private PDF attachments. Their
+existing BullMQ jobs retain their own retry/lifecycle logic. OTP development LOG
+mode still uses the explicit OTP log handler so developers can retrieve codes;
+the shared generic LOG email adapter logs only effect IDs, not message content.

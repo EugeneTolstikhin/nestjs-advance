@@ -1,3 +1,4 @@
+import { OrdersModule } from './orders/orders.module';
 import { CheckoutModule } from './checkout/checkout.module';
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { BrowserUserMiddleware } from './auth/browser-user.middleware';
@@ -16,6 +17,7 @@ import { CartModule } from './cart/cart.module';
 @Module({
   imports: [
     CheckoutModule,
+    OrdersModule,
     CartModule,
     ProductsModule,
     AuthModule,
@@ -43,6 +45,7 @@ export class AppModule implements NestModule {
       { path: 'my-shop', method: RequestMethod.GET },
       { path: 'cart', method: RequestMethod.GET },
       { path: 'checkout', method: RequestMethod.GET },
+      { path: 'orders/:id', method: RequestMethod.GET },
       { path: 'shop/new', method: RequestMethod.GET },
       { path: 'shop/:id/edit', method: RequestMethod.GET },
       { path: 'auth/register', method: RequestMethod.GET },

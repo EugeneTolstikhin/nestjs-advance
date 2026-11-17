@@ -8,7 +8,8 @@
       "views/**/*.hbs",
       "public/**/*",
       "user-interaction/configs/*.json",
-      "payments/*.json"
+      "payments/*.json",
+      "orders/fonts/*"
     ],
     "watchAssets": true
   }

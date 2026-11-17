@@ -181,3 +181,10 @@ development synchronization performs this upgrade without clearing those records
 Provider communication errors and local verification/finalization failures now
 have distinct sanitized retry diagnostics. Neither path logs provider secrets or
 buyer details, and both retain the same payment reference.
+
+## Confirmation and fulfillment
+
+Paid orders now continue into independent invoice, delivery tracking and email
+jobs. Each seller order has a private PDF demo invoice and carrier tracking
+history. See [ORDERS.md](ORDERS.md) for setup, provider factories, recovery and
+current development limitations.

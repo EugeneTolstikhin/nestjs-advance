@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { ConfiguredOtpFactory, JsonOtpConfigSource, OtpFactory } from './otp.config';
 import { LogOtpHandler } from '../handlers/log-otp.handler';
 import { SmsOtpHandler } from '../handlers/sms-otp.handler';
+import { EmailProviderFactory } from '../email/email-provider';
 import { EmailOtpHandler } from '../handlers/email-otp.handler';
 import { UserInteractionModule } from '../user-interaction.module';
 import { UserInteractionService } from '../user-interaction.service';
@@ -28,7 +29,7 @@ describe('OTP configuration and factory', () => {
     });
 
     it('defaults missing files and omitted channels to LOG', async () => {
-        const factory = new ConfiguredOtpFactory(new JsonOtpConfigSource(path));
+        const factory = new ConfiguredOtpFactory(new JsonOtpConfigSource(path), new EmailProviderFactory());
         expect(await factory.create()).toBeInstanceOf(LogOtpHandler);
         expect(await factory.create('LOG')).toBeInstanceOf(LogOtpHandler);
         expect(await factory.create('phone')).toBeInstanceOf(LogOtpHandler);
@@ -42,7 +43,7 @@ describe('OTP configuration and factory', () => {
             phone: { provider: 'seven', api: { url: 'https://example.com/sms', keyEnv: 'SEVEN_API_KEY' } },
             email: { provider: 'brevo', api: { url: 'https://example.com/email', keyEnv: 'BREVO_API_KEY' } },
         }));
-        const factory = new ConfiguredOtpFactory(new JsonOtpConfigSource(path));
+        const factory = new ConfiguredOtpFactory(new JsonOtpConfigSource(path), new EmailProviderFactory());
         const phone = await factory.create('phone');
         const email = await factory.create('email');
         expect(phone).toBeInstanceOf(SmsOtpHandler);
@@ -55,7 +56,7 @@ describe('OTP configuration and factory', () => {
     });
 
     it('reloads configuration so provider changes do not require replacing the factory', async () => {
-        const factory = new ConfiguredOtpFactory(new JsonOtpConfigSource(path));
+        const factory = new ConfiguredOtpFactory(new JsonOtpConfigSource(path), new EmailProviderFactory());
         expect(await factory.create('phone')).toBeInstanceOf(LogOtpHandler);
         await writeFile(path, JSON.stringify({ phone: { provider: 'seven', api: { url: 'https://example.com' } } }));
         expect(await factory.create('phone')).toBeInstanceOf(SmsOtpHandler);
@@ -64,7 +65,7 @@ describe('OTP configuration and factory', () => {
 
     it('falls back independently when a recipient channel has no provider or API', async () => {
         const source = new JsonOtpConfigSource(path);
-        const factory = new ConfiguredOtpFactory(source);
+        const factory = new ConfiguredOtpFactory(source, new EmailProviderFactory());
         await writeFile(path, JSON.stringify({
             phone: { provider: 'seven', api: { url: 'https://example.com/sms' } }, email: null,
         }));
@@ -107,7 +108,7 @@ describe('OTP configuration and factory', () => {
             await expect(source.load()).rejects.toThrow();
         }
         await writeFile(path, JSON.stringify({ phone: { provider: 'seven' } }));
-        expect(await new ConfiguredOtpFactory(source).create('phone')).toBeInstanceOf(LogOtpHandler);
+        expect(await new ConfiguredOtpFactory(source, new EmailProviderFactory()).create('phone')).toBeInstanceOf(LogOtpHandler);
     });
 
     it('logs a six-digit code in development without returning it', async () => {

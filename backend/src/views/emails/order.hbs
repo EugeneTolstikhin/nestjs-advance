@@ -1,0 +1,86 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Nest Shop order update</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 24px 12px;
+      background: #f7f6f2;
+      font:
+        16px/1.6 Arial,
+        sans-serif;
+      color: #242b25;
+    "
+  >
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            style="
+              max-width: 560px;
+              background: #fff;
+              border: 1px solid #dddcd4;
+              border-radius: 10px;
+            "
+            cellpadding="24"
+          >
+            <tr>
+              <td>
+                <p style="font-size: 24px; font-weight: bold; color: #526b44">
+                  Nest Shop.
+                </p>
+                <h1
+                  style="
+                    font:
+                      30px Georgia,
+                      serif;
+                  "
+                >
+                  {{#if confirmation}}Your order is confirmed{{else}}Your
+                  delivery has an update{{/if}}
+                </h1>
+                <p>Order: {{orderId}}</p>
+                {{#if confirmation}}
+                <p>
+                  Your demo invoice
+                  <strong>{{number}}</strong>
+                  is attached as a PDF.
+                </p>
+                {{/if}}
+                <p style="padding: 16px; background: #e7eadf">
+                  Tracking number: <strong>{{trackingNumber}}</strong
+                  ><br />Status: <strong>{{status}}</strong><br />Updated:
+                  {{occurredAt}}
+                </p>
+                <p>
+                  <a
+                    href="{{url}}"
+                    style="
+                      display: inline-block;
+                      padding: 12px 20px;
+                      background: #526b44;
+                      color: #fff;
+                      text-decoration: none;
+                      border-radius: 6px;
+                    "
+                    >View order and tracking</a
+                  >
+                </p>
+                <p style="font-size: 13px; color: #62695f">
+                  Development order and simulated delivery. No real delivery
+                  company is contacted. The attached demo invoice is not a tax
+                  invoice.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

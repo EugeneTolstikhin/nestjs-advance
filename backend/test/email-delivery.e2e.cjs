@@ -9,12 +9,13 @@ const os = require('node:os');
 const { join } = require('node:path');
 const { Queue } = require('bullmq');
 const { Test } = require('@nestjs/testing');
-const { UserInteractionModule } = require('../dist/user-interaction/user-interaction.module');
-const { OtpFactory } = require('../dist/user-interaction/configs/otp.config');
-const { AuthStateStore, MemoryAuthStateStore } = require('../dist/auth/storage/auth-state.store');
-const { RegistrationService } = require('../dist/auth/registration.service');
-const { LoginService } = require('../dist/auth/login.service');
-const { Nationality } = require('../dist/auth/auth.dto');
+const build = process.env.TEST_BUILD_DIR || '../dist';
+const { UserInteractionModule } = require(`${build}/user-interaction/user-interaction.module`);
+const { OtpFactory } = require(`${build}/user-interaction/configs/otp.config`);
+const { AuthStateStore, MemoryAuthStateStore } = require(`${build}/auth/storage/auth-state.store`);
+const { RegistrationService } = require(`${build}/auth/registration.service`);
+const { LoginService } = require(`${build}/auth/login.service`);
+const { Nationality } = require(`${build}/auth/auth.dto`);
 
 async function freePort() {
     const server = createServer();

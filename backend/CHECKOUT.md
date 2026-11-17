@@ -298,3 +298,10 @@ PDF generation and email will be separate outbox/job effects, not synchronous
 work inside the payment or inventory transaction. Printing is initiated by the
 buyer; there will be no automatic printer access. Invoice access and failure/
 retry paths will be tested when their milestones are implemented.
+
+## Confirmation and fulfillment
+
+Paid orders now continue into independent invoice, delivery tracking and email
+jobs. Each seller order has a private PDF demo invoice and carrier tracking
+history. See [ORDERS.md](ORDERS.md) for setup, provider factories, recovery and
+current development limitations.

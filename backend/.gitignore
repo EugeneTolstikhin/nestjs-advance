@@ -71,3 +71,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Legacy local provider ledger (the simulator now stores data in its own project)
 payment-simulator.sqlite*
+
+# Private generated order invoices
+/storage/private/
+/output/pdf/

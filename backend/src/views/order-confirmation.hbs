@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}} | Nest Shop</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="stylesheet" href="/assets/styles.css?v=18">
+    <script src="/assets/order-confirmation.js" defer></script>
+  </head>
+  <body>
+    {{> navbar}}
+    <main class="cart-page" id="order-confirmation" data-checkout-id="{{checkoutId}}">
+      <p class="eyebrow">Thank you for your order</p>
+      <h1>Order confirmed</h1>
+      <p id="order-reference"></p>
+      <p id="order-total" class="cart-total"></p>
+      <p id="order-status" role="status" aria-live="polite">Loading confirmation and tracking…</p>
+      <p class="auth-note">Invoice generation, email delivery and shipment creation run in the background. Updates appear here automatically.</p>
+      <section id="order-sellers" aria-label="Seller orders, invoices and tracking"></section>
+      <a href="/shop" class="nav-button nav-button-primary">Continue shopping</a>
+      <noscript>Enable JavaScript to load your private invoices and delivery tracking.</noscript>
+    </main>
+    {{> footer}}
+  </body>
+</html>

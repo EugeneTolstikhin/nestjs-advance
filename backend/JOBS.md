@@ -128,3 +128,10 @@ provider factory. Payment intents persist in SQLite before enqueueing, and a
 reconciler dispatches due work after queue failures/restarts. See
 [PAYMENTS.md](./PAYMENTS.md) for provider setup, uncertainty handling and atomic
 stock finalization. The simulator itself has no dependency on Redis or BullMQ.
+
+## Confirmation and fulfillment
+
+Paid orders now continue into independent invoice, delivery tracking and email
+jobs. Each seller order has a private PDF demo invoice and carrier tracking
+history. See [ORDERS.md](ORDERS.md) for setup, provider factories, recovery and
+current development limitations.

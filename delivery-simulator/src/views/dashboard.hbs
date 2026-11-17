@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Delivery simulator · Nest Shop</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px 16px;
+        background: #f7f6f2;
+        color: #242b25;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 860px;
+        margin: auto;
+      }
+      h1 {
+        font:
+          40px Georgia,
+          serif;
+      }
+      article {
+        margin: 20px 0;
+        padding: 24px;
+        background: #fff;
+        border: 1px solid #dddcd4;
+        border-radius: 10px;
+      }
+      .badge {
+        color: #526b44;
+        font-weight: 700;
+        letter-spacing: 2px;
+      }
+      .notice {
+        background: #f6edcf;
+        padding: 16px;
+        border-radius: 8px;
+      }
+      select,
+      button {
+        padding: 12px;
+        font: inherit;
+        border: 1px solid #526b44;
+        border-radius: 7px;
+      }
+      button {
+        background: #526b44;
+        color: #fff;
+        cursor: pointer;
+      }
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      code {
+        overflow-wrap: anywhere;
+      }
+      .lifecycle {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0;
+        list-style: none;
+      }
+      .lifecycle li {
+        border: 1px solid #dddcd4;
+        border-radius: 6px;
+        padding: 6px 10px;
+      }
+      .lifecycle [aria-current="step"] {
+        background: #e7eadf;
+        border-color: #526b44;
+        font-weight: 700;
+      }
+      .hint { color: #62695f; }
+      time { color: #62695f; font-size: 0.875em; }
+      label { display: grid; gap: 6px; }
+      form { align-items: end; }
+      :focus-visible { outline: 3px solid #526b44; outline-offset: 3px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="badge">NEST SHOP · DELIVERY SIMULATOR</p>
+      <h1>
+        {{#if readOnly}}Track delivery{{else}}Manage test deliveries{{/if}}
+      </h1>
+      <p class="notice">
+        Development only. These shipments and tracking numbers are simulated. No
+        delivery company is contacted.
+      </p>
+      {{#each shipments}}
+      <article>
+        <h2>{{trackingNumber}}</h2>
+        <p>Seller order: <code>{{reference}}</code></p>
+        <p>Status: <strong>{{statusLabel}}</strong> · Update {{version}}</p>
+        <h3>Delivery lifecycle</h3>
+        <p class="hint">Label created → Picked up → In transit → Out for delivery → Delivered. After a failed delivery, retry via In transit or choose Returning to sender → Returned to sender (received). Cancellation is available before pickup.</p>
+        <ul class="lifecycle" aria-label="All delivery statuses">
+          {{#each choices}}
+          <li {{#if current}}aria-current="step"{{/if}}>{{label}}</li>
+          {{/each}}
+        </ul>
+        {{#if canUpdate}}
+        <form method="post" action="/shipments/{{trackingNumber}}/status">
+          <input type="hidden" name="csrf" value="{{csrf}}" /><input
+            type="hidden"
+            name="version"
+            value="{{version}}"
+          /><label
+            >Next status
+            <select name="status">
+              {{#each choices}}
+              <option value="{{value}}" {{#if disabled}}disabled{{/if}} {{#if selected}}selected{{/if}}>{{label}}{{#if current}} (current){{else}}{{#if disabled}} (unavailable from this step){{/if}}{{/if}}</option>
+              {{/each}}
+            </select></label
+          ><button type="submit">Update delivery status</button>
+        </form>
+        <p class="hint">Only valid next statuses can be selected. Update the status to unlock the following delivery step.</p>
+        {{/if}}
+        {{#if terminal}}<p>This shipment is finished. No further status changes are available.</p>{{/if}}
+        <h3>Tracking history</h3>
+        <ol>
+          {{#each events}}
+          <li>{{label}} · <time datetime="{{time}}">{{time}}</time></li>
+          {{/each}}
+        </ol>
+      </article>
+      {{else}}
+      <p>
+        No shipments yet. Complete a paid order in the shop; its background jobs
+        will create shipments here.
+      </p>
+      {{/each}}
+    </main>
+  </body>
+</html>

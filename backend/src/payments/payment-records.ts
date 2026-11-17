@@ -1,3 +1,7 @@
+import type {
+  DeliveryStatus,
+  OrderConfirmation,
+} from '../orders/order-confirmation.types';
 import type { CheckoutLine } from '../checkout/checkout-session.entity';
 import type { DeliveryDetails, ShippingQuote } from '../checkout/shipping';
 export interface PaymentRecord {
@@ -34,7 +38,8 @@ export interface OrderRecord {
     items: CheckoutLine[];
     shippingCents: number;
     totalCents: number;
-    fulfillment: 'unfulfilled';
+    fulfillment: 'unfulfilled' | DeliveryStatus;
   }[];
   cleanup: 'pending' | 'cleared_or_preserved';
+  confirmation?: OrderConfirmation;
 }
