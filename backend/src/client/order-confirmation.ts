@@ -7,6 +7,8 @@
   interface Data {
     id: string;
     orderId: string;
+    orderNumber?: string;
+    placedAt?: number;
     totalCents: number;
     currency: string;
     recipient: string | null;
@@ -15,7 +17,14 @@
     sellers: {
       id: string;
       totalCents: number;
-      items: { name: string; quantity: number; lineTotalCents: number }[];
+      sellerName?: string;
+      canReturn?: boolean;
+      items: {
+        name: string;
+        quantity: number;
+        lineTotalCents: number;
+        thumbnail?: string | null;
+      }[];
       invoice: { number: string; status: string } | null;
       shipment: {
         trackingNumber: string | null;
@@ -69,7 +78,7 @@
       const data: Data = await response.json();
       if (stopped) return;
       document.getElementById('order-reference')!.textContent =
-        `Order ${data.orderId}`;
+        `Order #${data.orderNumber ?? data.orderId.slice(0, 8).toUpperCase()}${data.placedAt ? ` · Placed ${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long' }).format(data.placedAt)}` : ''}`;
       document.getElementById('order-total')!.textContent =
         `Paid total: ${money(data.totalCents)}`;
       const text = data.preparing
@@ -85,19 +94,38 @@
         ...data.sellers.map((seller, index) => {
           const section = node('section', '', 'checkout-panel');
           section.append(
-            node('h2', `Seller order ${index + 1}`),
-            node('p', `Reference: ${seller.id}`),
-          );
-          const list = document.createElement('ul');
-          list.className = 'checkout-items';
-          seller.items.forEach((item) =>
-            list.append(
-              node(
-                'li',
-                `${item.name} · ${item.quantity} units · ${money(item.lineTotalCents)}`,
-              ),
+            node(
+              'h2',
+              seller.sellerName
+                ? `Sold by ${seller.sellerName}`
+                : `Delivery ${index + 1}`,
             ),
           );
+          const list = document.createElement('ul');
+          list.className = 'order-products';
+          seller.items.forEach((item) => {
+            const row = node('li', '', 'order-product');
+            const photo = node('div', '', 'order-thumbnail');
+            photo.append(node('span', 'Photo unavailable'));
+            if (item.thumbnail) {
+              const image = document.createElement('img');
+              image.src = item.thumbnail;
+              image.alt = item.name;
+              image.loading = 'lazy';
+              image.setAttribute('data-order-image', '');
+              photo.append(image);
+            }
+            const text = node('div', '');
+            text.append(
+              node('h3', item.name),
+              node(
+                'p',
+                `Quantity ${item.quantity} · ${money(item.lineTotalCents)}`,
+              ),
+            );
+            row.append(photo, text);
+            list.append(row);
+          });
           section.append(
             list,
             node(
@@ -105,6 +133,13 @@
               `Seller total including shipping: ${money(seller.totalCents)}`,
             ),
           );
+          if (seller.canReturn) {
+            const action = document.createElement('a');
+            action.className = 'nav-button nav-button-secondary';
+            action.href = `/returns?checkout=${id}&seller=${seller.id}`;
+            action.textContent = 'Return items';
+            section.append(action);
+          }
           section.append(node('h3', 'Invoice'));
           if (seller.invoice?.status === 'ready') {
             section.append(

@@ -6,6 +6,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { OrderPresentationService } from './order-presentation.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -47,6 +48,7 @@ export class OrderConfirmationService implements OnModuleInit, OnModuleDestroy {
     private readonly delivery: DeliveryProviderFactory,
     private readonly invoices: InvoiceRendererFactory,
     private readonly email: EmailProviderFactory,
+    private readonly presentation: OrderPresentationService,
   ) {
     if (new URL(this.shopOrigin).origin !== this.shopOrigin)
       throw new Error('SHOP_ORIGIN must be an origin');
@@ -494,11 +496,24 @@ export class OrderConfirmationService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Confirmed order not found');
     return session;
   }
+  async history(buyerId: string) {
+    const sessions = await this.products.withStockTransaction((manager) =>
+      manager.find(CheckoutSession, {
+        where: { buyerId, status: 'completed' },
+        order: { createdAt: 'DESC' },
+        take: 100,
+      }),
+    );
+    return this.presentation.describe(sessions);
+  }
   async view(buyerId: string, id: string) {
     const session = await this.owned(buyerId, id);
     const order = session.order!;
     const state = order.confirmation;
+    const display = (await this.presentation.describe([session]))[0];
     return {
+      orderNumber: display.orderNumber,
+      placedAt: display.placedAt,
       id: session.id,
       orderId: order.id,
       totalCents: order.totalCents,
@@ -509,7 +524,10 @@ export class OrderConfirmationService implements OnModuleInit, OnModuleDestroy {
       preparing: !state,
       sellers: order.sellerOrders.map((seller) => ({
         id: seller.id,
-        items: seller.items,
+        sellerName: display.sellers.find((value) => value.id === seller.id)!
+          .sellerName,
+        items: display.sellers.find((value) => value.id === seller.id)!.items,
+        canReturn: seller.fulfillment === 'delivered',
         totalCents: seller.totalCents,
         invoice:
           state?.invoices.find((value) => value.sellerOrderId === seller.id) ??

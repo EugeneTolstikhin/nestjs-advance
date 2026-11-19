@@ -1,3 +1,4 @@
+import { OrderPresentationModule } from './order-presentation.service';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { ProductsModule } from '../products/products.module';
@@ -8,7 +9,13 @@ import { DeliveryProviderFactory } from './delivery-provider';
 import { InvoiceRendererFactory } from './invoice-renderer';
 import { EmailModule } from '../user-interaction/email/email.module';
 @Module({
-  imports: [AuthModule, ProductsModule, JobsModule, EmailModule],
+  imports: [
+    AuthModule,
+    ProductsModule,
+    JobsModule,
+    EmailModule,
+    OrderPresentationModule,
+  ],
   providers: [
     OrderConfirmationService,
     DeliveryProviderFactory,

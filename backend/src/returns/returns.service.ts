@@ -8,9 +8,10 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import hbs from 'hbs';
 import { isEmail } from 'class-validator';
+import { OrderPresentationService } from '../orders/order-presentation.service';
 import { ProductsService } from '../products/products.service';
 import { Products } from '../products/products.entity';
 import { CheckoutSession } from '../checkout/checkout-session.entity';
@@ -46,6 +47,7 @@ export class ReturnsService implements OnModuleInit, OnModuleDestroy {
     private readonly delivery: DeliveryProviderFactory,
     private readonly payments: PaymentProviderFactory,
     private readonly email: EmailProviderFactory,
+    private readonly presentation: OrderPresentationService,
   ) {}
 
   async onModuleInit() {
@@ -308,8 +310,8 @@ export class ReturnsService implements OnModuleInit, OnModuleDestroy {
     });
   }
   async list(user: AuthenticatedUser) {
-    return this.products.withStockTransaction(async (manager) => {
-      const rows = await manager.find(OrderReturn, {
+    const rows = await this.products.withStockTransaction(async (manager) => {
+      return manager.find(OrderReturn, {
         where: [
           ...(user.roles.includes(TypeOfUser.Buyer)
             ? [{ buyerId: user.sub }]
@@ -321,13 +323,42 @@ export class ReturnsService implements OnModuleInit, OnModuleDestroy {
         order: { createdAt: 'DESC' },
         take: 100,
       });
-      return rows.map((record) => this.view(record, user));
     });
+    return this.present(rows, user);
   }
   async get(id: string, user: AuthenticatedUser) {
-    return this.products.withStockTransaction(async (manager) =>
-      this.view(await this.owned(manager, id, user), user),
+    const record = await this.products.withStockTransaction((manager) =>
+      this.owned(manager, id, user),
     );
+    return (await this.present([record], user))[0];
+  }
+  private async present(records: OrderReturn[], user: AuthenticatedUser) {
+    const ids = [...new Set(records.map((record) => record.checkoutId))];
+    const sessions = ids.length
+      ? await this.products.withStockTransaction((manager) =>
+          manager.find(CheckoutSession, { where: { id: In(ids) } }),
+        )
+      : [];
+    const display = await this.presentation.describe(sessions);
+    return records.map((record) => {
+      const order = display.find((value) => value.id === record.checkoutId);
+      const seller = order?.sellers.find(
+        (value) => value.id === record.sellerOrderId,
+      );
+      return {
+        ...this.view(record, user),
+        reference: `RT-${record.id.replaceAll('-', '').slice(0, 8).toUpperCase()}`,
+        orderNumber: order?.orderNumber,
+        placedAt: order?.placedAt,
+        sellerName: seller?.sellerName ?? 'Seller',
+        items: record.data.items.map((item) => ({
+          ...item,
+          thumbnail:
+            seller?.items.find((value) => value.productId === item.productId)
+              ?.thumbnail ?? null,
+        })),
+      };
+    });
   }
   private view(record: OrderReturn, user: AuthenticatedUser) {
     const { notifications, ...data } = record.data;

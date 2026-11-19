@@ -1,6 +1,6 @@
 # Returns
 
-Open **Returns** in the shop navigation or **Manage returns** on a paid order.
+Open **My orders** in the shop navigation, then choose **Return items** for a delivered purchase. Order cards and return forms show product photos, purchase dates and seller names. Existing returns are available through **My returns**, and sellers can use **Review customer returns**.
 The buyer and owning seller can access a return's private details and photos.
 
 ## Buyer-requested returns

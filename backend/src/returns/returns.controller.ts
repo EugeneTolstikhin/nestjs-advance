@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
+import { OrderPresentationService } from '../orders/order-presentation.service';
 import { ProductsService } from '../products/products.service';
 import { CheckoutSession } from '../checkout/checkout-session.entity';
 import { SessionAuthGuard } from '../auth/guard/session-auth.guard';
@@ -51,6 +52,7 @@ export class ReturnsController {
   constructor(
     private readonly returns: ReturnsService,
     private readonly products: ProductsService,
+    private readonly presentation: OrderPresentationService,
   ) {}
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -63,7 +65,7 @@ export class ReturnsController {
   async list(@Req() request: AuthRequest) {
     const user = request.user!;
     const records = await this.returns.list(user);
-    const orders = user.roles.includes(TypeOfUser.Buyer)
+    const options = user.roles.includes(TypeOfUser.Buyer)
       ? await this.products.withStockTransaction(async (manager) => {
           const sessions = await manager.find(CheckoutSession, {
             where: { buyerId: user.sub, status: 'completed' },
@@ -83,6 +85,7 @@ export class ReturnsController {
                 .map((seller) => ({
                   checkoutId: session.id,
                   orderId: session.order!.id,
+                  session,
                   sellerOrderId: seller.id,
                   items: seller.items.map((item) => ({
                     ...item,
@@ -111,6 +114,30 @@ export class ReturnsController {
             );
         })
       : [];
+    const sessions = [
+      ...new Map(
+        options.map((option) => [option.session.id, option.session]),
+      ).values(),
+    ];
+    const display = await this.presentation.describe(sessions);
+    const orders = options.map(({ session, ...option }) => {
+      const order = display.find((value) => value.id === session.id)!;
+      const seller = order.sellers.find(
+        (value) => value.id === option.sellerOrderId,
+      )!;
+      return {
+        ...option,
+        orderNumber: order.orderNumber,
+        placedAt: order.placedAt,
+        sellerName: seller.sellerName,
+        items: option.items.map((item) => ({
+          ...item,
+          thumbnail:
+            seller.items.find((value) => value.productId === item.productId)
+              ?.thumbnail ?? null,
+        })),
+      };
+    });
     return { returns: records, orders };
   }
   @Post('requests')

@@ -1,5 +1,9 @@
 # Paid-order confirmation and delivery
 
+**My orders** in the navigation opens the private purchase history at `/orders`.
+Each purchase shows its date, short reference, seller names, product thumbnails,
+quantities and paid total, with links to tracking, invoices and eligible returns.
+
 After verified payment, open **View order confirmation** in checkout. The private
 `/orders/:checkoutId` page shows each seller order, invoice, tracking number,
 status history and email delivery state. It refreshes every five seconds.

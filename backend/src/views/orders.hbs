@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My orders | Nest Shop</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="stylesheet" href="/assets/styles.css?v=18">
+    <link rel="stylesheet" href="/assets/orders.css">
+    <script src="/assets/order-images.js" defer></script>
+  </head>
+  <body>
+    {{> navbar}}
+    <main class="cart-page order-page">
+      <h1>My orders</h1>
+      <div class="product-actions">
+        <a class="nav-button nav-button-secondary" href="/returns">My returns</a>
+        {{#if canReviewReturns}}<a class="nav-button nav-button-secondary" href="/returns">Review customer returns</a>{{/if}}
+      </div>
+      {{#each orders}}
+      <article class="order-card">
+        <header class="order-card-header">
+          <div><h2>Order #{{orderNumber}}</h2><p>Placed {{dateLabel}}</p></div>
+          <p class="price">{{totalFormatted}}</p>
+        </header>
+        {{#each sellers}}
+        <section class="order-shipment">
+          <h3>Sold by {{sellerName}}</h3>
+          <p class="order-shipment-status">{{statusLabel}}</p>
+          <ul class="order-products">
+            {{#each items}}
+            <li class="order-product">
+              <div class="order-thumbnail"><span aria-hidden="true">Photo unavailable</span>{{#if thumbnail}}<img src="{{thumbnail}}" alt="{{name}}" loading="lazy" data-order-image>{{/if}}</div>
+              <div><h4>{{name}}</h4><p>Quantity {{quantity}}</p></div>
+              <p class="price">{{lineTotalFormatted}}</p>
+            </li>
+            {{/each}}
+          </ul>
+          {{#if canReturn}}<a href="/returns?checkout={{../id}}&amp;seller={{id}}" class="nav-button nav-button-secondary">Return items</a>{{/if}}
+        </section>
+        {{/each}}
+        <a href="/orders/{{id}}" class="nav-button nav-button-primary">View order and tracking</a>
+      </article>
+      {{else}}
+      <section class="empty-state">
+        <h2>You haven't placed any orders yet</h2>
+        <a href="/shop" class="nav-button nav-button-primary">Browse products</a>
+      </section>
+      {{/each}}
+    </main>
+    {{> footer}}
+  </body>
+</html>

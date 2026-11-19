@@ -751,3 +751,89 @@ test('seller rejection requires a reason and releases the declared quantities fo
     .findOneByOrFail({ id: replacement.id });
   assert.equal(stored.data.shipment, null);
 });
+
+test('my orders and return selection use readable references, seller names and product thumbnails', async () => {
+  const { session, seller } = await fixture();
+  accounts.get(seller.sellerId).sellerProfile = { companyName: 'Green Farm' };
+  const { ProductMedia } = require(
+    `${build}/products/media/product-media.entity`,
+  );
+  const photoId = randomUUID();
+  await db
+    .getRepository(ProductMedia)
+    .save({
+      id: photoId,
+      ownerId: seller.sellerId,
+      productId: seller.items[0].productId,
+      position: 0,
+      originalName: 'apple.webp',
+      kind: 'image',
+      mimeType: 'image/webp',
+      size: 20,
+      reservedBytes: 20,
+      status: 'ready',
+      expiresAt: Date.now() + 600000,
+    });
+  const sharp = require('sharp');
+  const { mkdir, writeFile } = require('node:fs/promises');
+  await mkdir(join(directory, 'media', 'ready'), { recursive: true });
+  await writeFile(
+    join(directory, 'media', 'ready', `${photoId}.webp`),
+    await sharp({
+      create: { width: 16, height: 16, channels: 3, background: 'green' },
+    })
+      .webp()
+      .toBuffer(),
+  );
+  const history = await api
+    .get('/orders')
+    .set('Cookie', cookie)
+    .expect(200)
+    .expect('Cache-Control', 'no-store');
+  assert.match(history.text, /My orders/);
+  assert.match(history.text, /Order #NS-\d{6}-[A-F0-9]{8}/);
+  assert.match(history.text, /Green Farm/);
+  assert.ok(history.text.includes(`/media/files/${photoId}`));
+  assert.ok(
+    history.text.includes(
+      `/returns?checkout=${session.id}&amp;seller=${seller.id}`,
+    ),
+  );
+  await api
+    .get(`/media/files/${photoId}`)
+    .expect(200)
+    .expect('Content-Type', /image\/webp/);
+  const details = (
+    await api
+      .get(`/orders/${session.id}/data`)
+      .set('Cookie', cookie)
+      .expect(200)
+  ).body;
+  assert.match(details.orderNumber, /^NS-\d{6}-[A-F0-9]{8}$/);
+  assert.equal(details.sellers[0].sellerName, 'Green Farm');
+  assert.equal(
+    details.sellers[0].items[0].thumbnail,
+    `/media/files/${photoId}`,
+  );
+  const options = (
+    await api.get('/returns/data').set('Cookie', cookie).expect(200)
+  ).body;
+  const option = options.orders.find(
+    (value) =>
+      value.checkoutId === session.id && value.sellerOrderId === seller.id,
+  );
+  assert.equal(option.sellerName, 'Green Farm');
+  assert.equal(option.orderNumber, details.orderNumber);
+  assert.equal(option.items[0].thumbnail, `/media/files/${photoId}`);
+  const foreign = `nest_session=${await jwt.signAsync({ sub: other, roles: ['buyer'] })}`;
+  const foreignPage = await api
+    .get('/orders')
+    .set('Cookie', foreign)
+    .expect(200);
+  assert.ok(!foreignPage.text.includes(details.orderNumber));
+  await api
+    .get(`/orders/${session.id}/data`)
+    .set('Cookie', foreign)
+    .expect(404);
+  await api.get('/orders').expect(401);
+});

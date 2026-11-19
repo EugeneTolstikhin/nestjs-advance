@@ -10,6 +10,7 @@
     quantity: number;
     unitPriceCents: number;
     reason: string;
+    thumbnail?: string | null;
   };
   type Inspection = {
     productId: string;
@@ -26,6 +27,10 @@
     status: string;
     revision: number;
     canReview: boolean;
+    reference?: string;
+    orderNumber?: string;
+    placedAt?: number;
+    sellerName?: string;
     items: Line[];
     history: { author: string; text: string; at: number }[];
     shipment: {
@@ -50,6 +55,9 @@
   interface OrderOption {
     checkoutId: string;
     orderId: string;
+    orderNumber: string;
+    placedAt: number;
+    sellerName: string;
     sellerOrderId: string;
     items: (Line & { available: number })[];
   }
@@ -73,6 +81,27 @@
     item.textContent = text;
     if (className) item.className = className;
     return item;
+  }
+  const dateLabel = (value?: number) =>
+    value
+      ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' }).format(value)
+      : '';
+  function productSummary(item: Line, description: string) {
+    const row = element('div', '', 'order-product');
+    const photo = element('div', '', 'order-thumbnail');
+    photo.append(element('span', 'Photo unavailable'));
+    if (item.thumbnail) {
+      const image = element('img');
+      image.src = item.thumbnail;
+      image.alt = item.name;
+      image.loading = 'lazy';
+      image.setAttribute('data-order-image', '');
+      photo.append(image);
+    }
+    const text = element('div');
+    text.append(element('h3', item.name), element('p', description));
+    row.append(photo, text);
+    return row;
   }
   function link(text: string, href: string) {
     const item = element('a', text, 'nav-button nav-button-secondary');
@@ -181,17 +210,25 @@
           : 'Buyer-requested return',
       ),
       element('p', `Status: ${label(record.status)}`),
-      element('p', `Reference: ${record.id}`),
+      element(
+        'p',
+        `Return #${record.reference ?? `RT-${record.id.replaceAll('-', '').slice(0, 8).toUpperCase()}`}`,
+      ),
+      element(
+        'p',
+        `${record.orderNumber ? `Order #${record.orderNumber} · ` : ''}${dateLabel(record.placedAt)}`,
+      ),
+      element('p', `Sold by ${record.sellerName ?? 'Seller'}`),
       ...(record.canReview
         ? []
         : [link('Original order', `/orders/${record.checkoutId}`)]),
     );
-    const lines = element('ul');
+    const lines = element('div');
     record.items.forEach((item) =>
       lines.append(
-        element(
-          'li',
-          `${item.name} · Expected ${item.quantity} · ${money(item.unitPriceCents)} each · ${item.reason}`,
+        productSummary(
+          item,
+          `Expected return: ${item.quantity} · ${money(item.unitPriceCents)} each · ${item.reason}`,
         ),
       ),
     );
@@ -443,7 +480,12 @@
     orders.forEach((order, index) => {
       const option = element(
         'option',
-        `Order ${order.orderId} · Seller shipment ${order.sellerOrderId}`,
+        `${dateLabel(order.placedAt)} · ${order.sellerName} · ${order.items
+          .slice(0, 2)
+          .map((item) => item.name)
+          .join(
+            ', ',
+          )}${order.items.length > 2 ? ` +${order.items.length - 2} more` : ''}`,
       );
       option.value = String(index);
       select.append(option);
@@ -451,10 +493,14 @@
     const selected = orders.findIndex(
       (order) =>
         order.checkoutId ===
-        new URLSearchParams(location.search).get('checkout'),
+          new URLSearchParams(location.search).get('checkout') &&
+        (!new URLSearchParams(location.search).get('seller') ||
+          order.sellerOrderId ===
+            new URLSearchParams(location.search).get('seller')),
     );
     if (selected >= 0) select.value = String(selected);
     const rows = element('div');
+    const summary = element('div');
     let read: (() => {
       productId: string;
       quantity: number;
@@ -462,11 +508,24 @@
     })[] = [];
     function renderLines() {
       rows.replaceChildren();
-      read = orders[Number(select.value)].items
+      const selectedOrder = orders[Number(select.value)];
+      summary.replaceChildren(
+        element('h3', `Order #${selectedOrder.orderNumber}`),
+        element(
+          'p',
+          `Placed ${dateLabel(selectedOrder.placedAt)} · Sold by ${selectedOrder.sellerName}`,
+        ),
+      );
+      read = selectedOrder.items
         .filter((item) => item.available > 0)
         .map((item) => {
           const row = element('div', '', 'return-line');
-          row.append(element('h3', item.name));
+          row.append(
+            productSummary(
+              item,
+              `Purchased: ${item.quantity} · Available to return: ${item.available} · ${money(item.unitPriceCents)} each`,
+            ),
+          );
           const qty = number(
             `Quantity to return (up to ${item.available})`,
             0,
@@ -474,7 +533,12 @@
           );
           const reason = element('input');
           reason.maxLength = 500;
-          row.append(qty.row, field('Reason for return', reason));
+          qty.input.addEventListener('input', () => {
+            reason.required = Number(qty.input.value) > 0;
+          });
+          const fields = element('div', '', 'return-choice-fields');
+          fields.append(qty.row, field('Reason for return', reason));
+          row.append(fields);
           rows.append(row);
           return () => ({
             productId: item.productId,
@@ -486,7 +550,8 @@
     select.addEventListener('change', renderLines);
     renderLines();
     form.append(
-      field('Delivered seller shipment', select),
+      field('Choose your purchase', select),
+      summary,
       rows,
       element(
         'p',
@@ -545,9 +610,10 @@
             ),
             element(
               'p',
-              record.items
-                .map((item) => `${item.name} × ${item.quantity}`)
-                .join(', '),
+              `${record.orderNumber ?? 'Your order'} · ${dateLabel(record.placedAt)} · ${record.sellerName ?? 'Seller'}`,
+            ),
+            ...record.items.map((item) =>
+              productSummary(item, `Quantity ${item.quantity}`),
             ),
             link('Open return', `/returns/${record.id}`),
           );

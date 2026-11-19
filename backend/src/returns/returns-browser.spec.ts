@@ -113,4 +113,80 @@ describe('Return browser UI', () => {
       '',
     );
   });
+  it('identifies purchases by seller, date and photo and submits the selected shipment IDs', async () => {
+    window.document.getElementById('returns-page')!.dataset.returnId = '';
+    window.location.href =
+      'http://localhost:3000/returns?checkout=checkout&seller=second-seller';
+    const orders = [
+      {
+        checkoutId: 'checkout',
+        orderId: 'internal-order',
+        orderNumber: 'NS-261119-12345678',
+        placedAt: Date.UTC(2026, 10, 19),
+        sellerName: 'Orchard Shop',
+        sellerOrderId: 'first-seller',
+        items: [
+          {
+            productId: 'apple',
+            name: 'Apple Fruit',
+            quantity: 3,
+            available: 3,
+            unitPriceCents: 199,
+          },
+        ],
+      },
+      {
+        checkoutId: 'checkout',
+        orderId: 'internal-order',
+        orderNumber: 'NS-261119-12345678',
+        placedAt: Date.UTC(2026, 10, 19),
+        sellerName: 'Green Farm',
+        sellerOrderId: 'second-seller',
+        items: [
+          {
+            productId: 'pear',
+            name: 'Green Pear',
+            quantity: 2,
+            available: 1,
+            unitPriceCents: 250,
+            thumbnail: '/media/files/pear-photo',
+          },
+        ],
+      },
+    ];
+    fetchMock.mockResolvedValue(response({ returns: [], orders }));
+    window.eval(script);
+    await vi.waitFor(() =>
+      expect(
+        window.document
+          .querySelector('#returns-content img')
+          ?.getAttribute('src'),
+      ).toBe('/media/files/pear-photo'),
+    );
+    const select = window.document.querySelector('select')!;
+    expect(select.value).toBe('1');
+    expect(select.textContent).toContain('Green Farm');
+    expect(select.textContent).not.toContain('internal-order');
+    expect(select.textContent).not.toContain('second-seller');
+    expect(window.document.body.textContent).toContain(
+      'Purchased: 2 · Available to return: 1',
+    );
+    const form = select.closest('form')!;
+    form.querySelector('input[type=number]')!.value = '1';
+    form.querySelector('input:not([type=number])')!.value = 'Wrong item';
+    fetchMock.mockImplementation((path, options) =>
+      options?.method === 'POST'
+        ? new Promise(() => {})
+        : Promise.resolve(response({ returns: [], orders })),
+    );
+    form.dispatchEvent(new window.Event('submit', { cancelable: true }));
+    const call = fetchMock.mock.calls.find(
+      ([, options]) => options?.method === 'POST',
+    )!;
+    expect(JSON.parse(call[1].body)).toMatchObject({
+      checkoutId: 'checkout',
+      sellerOrderId: 'second-seller',
+      items: [{ productId: 'pear', quantity: 1, reason: 'Wrong item' }],
+    });
+  });
 });

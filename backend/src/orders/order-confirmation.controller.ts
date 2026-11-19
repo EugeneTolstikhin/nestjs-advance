@@ -27,11 +27,22 @@ class InvoiceIdDto extends OrderIdDto {
 }
 @Controller('orders')
 @UseGuards(SessionAuthGuard)
-@Roles(TypeOfUser.Buyer)
+@Roles(TypeOfUser.Buyer, TypeOfUser.Seller)
 @MaskPii(false)
 @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 export class OrderConfirmationController {
   constructor(private readonly orders: OrderConfirmationService) {}
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  @Render('orders')
+  async history(@Req() request: AuthRequest) {
+    return {
+      title: 'My orders',
+      orders: await this.orders.history(request.user!.sub),
+      canReviewReturns: request.user!.roles.includes(TypeOfUser.Seller),
+    };
+  }
+  @Roles(TypeOfUser.Buyer)
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @Render('order-confirmation')
@@ -39,11 +50,13 @@ export class OrderConfirmationController {
     await this.orders.owned(request.user!.sub, params.id);
     return { title: 'Order confirmation', checkoutId: params.id };
   }
+  @Roles(TypeOfUser.Buyer)
   @Get(':id/data')
   @Header('Cache-Control', 'no-store')
   get(@Req() request: AuthRequest, @Param() params: OrderIdDto) {
     return this.orders.view(request.user!.sub, params.id);
   }
+  @Roles(TypeOfUser.Buyer)
   @Get(':id/invoices/:sellerOrderId')
   @Header('Cache-Control', 'private, no-store')
   async invoice(

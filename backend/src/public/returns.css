@@ -11,3 +11,7 @@
 .return-page .nav-button { justify-self: start; }
 .return-page li { overflow-wrap: anywhere; }
 .return-page :focus-visible { outline: 3px solid #526b44; outline-offset: 3px; }
+
+.return-choice-fields { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+.return-choice-fields input { width: 100%; }
+@media (max-width: 600px) { .return-choice-fields { grid-template-columns: 1fr; } }

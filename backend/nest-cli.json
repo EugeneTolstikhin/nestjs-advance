@@ -5,11 +5,11 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "assets": [
-      "views/**/*.hbs",
-      "public/**/*",
+      "views",
+      "public",
       "user-interaction/configs/*.json",
       "payments/*.json",
-      "orders/fonts/*"
+      "orders/fonts"
     ],
     "watchAssets": true
   }

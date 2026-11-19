@@ -1,0 +1,16 @@
+.order-page { max-width: 1100px; }
+.order-card { background: white; border: 1px solid #dddcd4; border-radius: 14px; padding: clamp(1rem, 3vw, 2rem); margin: 1.5rem 0; }
+.order-card-header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid #dddcd4; padding-bottom: 1rem; }
+.order-card-header h2, .order-product h4 { margin: 0 0 .5rem; }
+.order-card-header p { margin: 0; }
+.order-shipment { padding: 1.25rem 0; }
+.order-shipment-status { text-transform: capitalize; color: #526b44; }
+.order-products { list-style: none; margin: 1rem 0; padding: 0; }
+.order-product { display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #ecece5; }
+.order-product > div:nth-child(2) { flex: 1; min-width: 0; }
+.order-product h4 { overflow-wrap: anywhere; }
+.order-product p { margin: .25rem 0; }
+.order-thumbnail { position: relative; display: grid; place-items: center; flex: 0 0 96px; width: 96px; height: 96px; border-radius: 8px; overflow: hidden; background: #e7eadf; color: #62695f; font-size: .8rem; text-align: center; }
+.order-thumbnail img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #f6f6f1; }
+.order-thumbnail img[hidden] { display: none; }
+@media (max-width: 560px) { .order-product { flex-wrap: wrap; } .order-product > .price { flex-basis: 100%; padding-left: 80px; } .order-thumbnail { flex-basis: 64px; width: 64px; height: 64px; } .order-card-header h2 { font-size: 1.15rem; } }

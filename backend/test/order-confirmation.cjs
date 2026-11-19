@@ -380,7 +380,7 @@ test('paid confirmation creates per-seller PDFs, tracking numbers and asynchrono
     .get(`/orders/${confirmed}`)
     .set('Cookie', cookie)
     .expect(200);
-  assert.match(page.text, /Order confirmed/);
+  assert.match(page.text, /Order details/);
 });
 test('all missed delivery events are caught in order, emailed asynchronously and not duplicated on replay', async () => {
   const current = await data(confirmed);
