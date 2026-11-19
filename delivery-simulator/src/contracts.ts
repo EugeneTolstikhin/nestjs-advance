@@ -12,6 +12,8 @@ export interface ShipmentRequest {
   reference: string;
   method: string;
   country: string;
+  direction?: "outbound" | "return";
+  relatedReference?: string;
 }
 export interface TrackingEvent {
   sequence: number;
@@ -47,3 +49,12 @@ export const statusLabels: Record<DeliveryStatus, string> = {
   returned_to_sender: "Returned to sender (received)",
   cancelled: "Cancelled",
 };
+
+export interface CarrierClaim {
+  reference: string;
+  shipmentReference: string;
+  notes: string;
+  status: "open" | "investigating" | "approved" | "rejected";
+  resolution: string;
+  version: number;
+}

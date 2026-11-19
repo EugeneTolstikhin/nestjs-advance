@@ -4,6 +4,8 @@ export interface ShipmentRequest {
   reference: string;
   method: string;
   country: string;
+  direction?: 'outbound' | 'return';
+  relatedReference?: string;
 }
 export interface ProviderShipment extends ShipmentRequest {
   trackingNumber: string;
@@ -11,9 +13,22 @@ export interface ProviderShipment extends ShipmentRequest {
   version: number;
   events: TrackingEvent[];
 }
+export interface CarrierClaim {
+  reference: string;
+  shipmentReference: string;
+  status: 'open' | 'investigating' | 'approved' | 'rejected';
+  resolution: string;
+}
+export interface ClaimRequest {
+  reference: string;
+  shipmentReference: string;
+  notes: string;
+}
 export interface DeliveryProvider {
   create(request: ShipmentRequest): Promise<ProviderShipment>;
   get(reference: string): Promise<ProviderShipment>;
+  createClaim?(request: ClaimRequest): Promise<CarrierClaim>;
+  getClaim?(reference: string): Promise<CarrierClaim>;
 }
 const statuses = [
   'label_created',
@@ -68,6 +83,41 @@ class SimulatorDeliveryProvider implements DeliveryProvider {
         'Invalid delivery provider response',
       );
     return data;
+  }
+  private async claim(
+    path: string,
+    body?: ClaimRequest,
+  ): Promise<CarrierClaim> {
+    const response = await fetch(this.origin + path, {
+      method: body ? 'POST' : 'GET',
+      headers: {
+        Authorization: `Bearer ${this.secret}`,
+        'Content-Type': 'application/json',
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(5000),
+      redirect: 'error',
+    });
+    if (!response.ok)
+      throw new ServiceUnavailableException(
+        'Carrier claim service unavailable',
+      );
+    const result: CarrierClaim = await response.json();
+    if (
+      !['open', 'investigating', 'approved', 'rejected'].includes(
+        result.status,
+      ) ||
+      typeof result.resolution !== 'string'
+    ) {
+      throw new ServiceUnavailableException('Invalid carrier claim response');
+    }
+    return result;
+  }
+  createClaim(request: ClaimRequest) {
+    return this.claim('/api/claims', request);
+  }
+  getClaim(reference: string) {
+    return this.claim(`/api/claims/${encodeURIComponent(reference)}`);
   }
   create(request: ShipmentRequest) {
     return this.request('/api/shipments', request);

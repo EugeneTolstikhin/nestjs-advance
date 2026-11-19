@@ -24,11 +24,58 @@ export class SimulatorLedger {
       reference TEXT PRIMARY KEY, token TEXT NOT NULL UNIQUE, request TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending', unavailableUntil INTEGER NOT NULL DEFAULT 0
     )`);
+    this.db.exec(
+      "CREATE TABLE IF NOT EXISTS refunds (reference TEXT PRIMARY KEY, paymentReference TEXT NOT NULL, amountCents INTEGER NOT NULL)",
+    );
+  }
+  refund(input: {
+    reference: string;
+    paymentReference: string;
+    amountCents: number;
+  }) {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const previous = this.db
+        .prepare(
+          "SELECT paymentReference, amountCents FROM refunds WHERE reference=?",
+        )
+        .get(input.reference);
+      if (previous) {
+        if (
+          previous.paymentReference !== input.paymentReference ||
+          previous.amountCents !== input.amountCents
+        )
+          throw new ConflictException("Refund reference already used");
+      } else {
+        const payment = this.get(input.paymentReference);
+        const total = this.db
+          .prepare(
+            "SELECT COALESCE(SUM(amountCents),0) AS amount FROM refunds WHERE paymentReference=?",
+          )
+          .get(input.paymentReference)!;
+        if (
+          payment.status !== "succeeded" ||
+          !Number.isSafeInteger(input.amountCents) ||
+          input.amountCents <= 0 ||
+          Number(total.amount) + input.amountCents > payment.amountCents
+        )
+          throw new ConflictException("Invalid refund amount or payment");
+        this.db
+          .prepare("INSERT INTO refunds VALUES (?,?,?)")
+          .run(input.reference, input.paymentReference, input.amountCents);
+      }
+      this.db.exec("COMMIT");
+      return { ...input, status: "succeeded" as const };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
   create(request: PaymentRequest): ProviderPayment {
     const target = new URL(request.returnUrl);
     if (
-      (request.method !== undefined && !/^[a-z][a-z0-9_]{1,39}$/.test(request.method)) ||
+      (request.method !== undefined &&
+        !/^[a-z][a-z0-9_]{1,39}$/.test(request.method)) ||
       target.origin !== this.shopOrigin ||
       target.pathname !== "/checkout" ||
       request.currency !== "EUR" ||

@@ -16,7 +16,16 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { IsInt, IsIn, IsString, IsUUID, Matches, Min } from "class-validator";
+import {
+  IsInt,
+  IsIn,
+  IsString,
+  IsUUID,
+  IsOptional,
+  MaxLength,
+  Matches,
+  Min,
+} from "class-validator";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -43,11 +52,25 @@ class CreateShipmentDto {
   @IsUUID("4") reference: string;
   @IsString() @Matches(/^[a-z][a-z0-9_]{1,39}$/) method: string;
   @IsIn(["DE"]) country: string;
+  @IsOptional() @IsIn(["outbound", "return"]) direction?: "outbound" | "return";
+  @IsOptional() @IsUUID("4") relatedReference?: string;
 }
 class UpdateStatusDto {
   @IsInt() @Min(1) version: number;
   @IsString() @Matches(/^[a-f0-9]{64}$/) csrf: string;
   @IsIn(Object.keys(transitions)) status: DeliveryStatus;
+}
+class CreateClaimDto {
+  @IsUUID("4") reference: string;
+  @IsUUID("4") shipmentReference: string;
+  @IsString() @MaxLength(3000) notes: string;
+}
+class ClaimDecisionDto {
+  @IsInt() @Min(1) version: number;
+  @IsString() @Matches(/^[a-f0-9]{64}$/) csrf: string;
+  @IsIn(["investigating", "approved", "rejected"]) status:
+    "investigating" | "approved" | "rejected";
+  @IsString() @MaxLength(3000) resolution: string;
 }
 @Controller()
 @UsePipes(
@@ -59,6 +82,34 @@ class UpdateStatusDto {
   }),
 )
 class DeliveryController {
+  @Post("api/claims") createClaim(
+    @Headers("authorization") authorization: string,
+    @Body() body: CreateClaimDto,
+  ) {
+    auth(authorization);
+    return ledger.createClaim(body);
+  }
+  @Get("api/claims/:reference") getClaim(
+    @Headers("authorization") authorization: string,
+    @Param("reference") reference: string,
+  ) {
+    auth(authorization);
+    return ledger.getClaim(reference);
+  }
+  @Post("claims/:reference") decideClaim(
+    @Param("reference") reference: string,
+    @Body() body: ClaimDecisionDto,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    if (
+      request.get("origin") !== origin ||
+      !equal(body.csrf, token(`claim-${reference}`, body.version))
+    )
+      throw new ForbiddenException("Invalid form origin or token");
+    ledger.updateClaim(reference, body.status, body.resolution, body.version);
+    response.set("Cache-Control", "no-store").redirect(303, "/");
+  }
   @Post("api/shipments") create(
     @Headers("authorization") authorization: string,
     @Body() body: CreateShipmentDto,
@@ -82,6 +133,13 @@ class DeliveryController {
     });
     response.type("html").send(
       template({
+        claims: ledger
+          .claims()
+          .map((claim) => ({
+            ...claim,
+            csrf: token(`claim-${claim.reference}`, claim.version),
+            active: !["approved", "rejected"].includes(claim.status),
+          })),
         shipments: ledger
           .list()
           .map((shipment) =>

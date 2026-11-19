@@ -96,42 +96,13 @@ can enter this flow without a data migration.
 A return is a fulfillment result, not a payment result. It does not automatically
 refund the buyer or restock inventory; those require separate business steps.
 
-## Next session: return review, restocking and refunds
+## Return requests and seller review
 
-Saved on 2026-11-16 at the user's request. This is the agreed continuation plan;
-the features below are not implemented yet.
+Both failed-delivery returns and seller-approved buyer requests are implemented.
+See [RETURNS.md](RETURNS.md) for tracking, inspection, discrepancies, evidence,
+stock adjustments and asynchronous refunds. Original order and invoice snapshots
+remain available alongside their separate return records.
 
-Start with a seller return-review screen and a return record per seller order,
-tracking quantities per order item. A carrier's `returned_to_sender` event means
-the parcel arrived, not that all expected items are present or sellable.
-
-1. Returning to sender: create/link a return record and notify the seller.
-2. Returned to sender: mark the return awaiting inspection and notify the buyer:
-   "The seller received your parcel. We're reviewing the return."
-3. Seller inspection: record received, sellable, damaged and missing quantities,
-   enforce the seller's ownership and validate against purchased quantities.
-4. Restock only confirmed sellable quantities. Example: three purchased, two
-   returned sellable means stock increases by two. Apply the SQL stock adjustment
-   and its return-item ledger entry atomically, with an idempotency constraint so
-   repeated clicks, carrier events and BullMQ retries cannot restock twice.
-5. Resolve the return through an approved refund or an explicitly arranged
-   redelivery. Redelivery requires new shipment tracking and its own inventory
-   handling; it must not silently reopen a terminal carrier shipment.
-
-Keep fulfillment, inspection, restocking and refund states independent. A damaged
-item may still qualify for a refund; a refund does not itself imply restocking.
-Refunds should use the payment provider interface/factory and BullMQ, with states
-such as requested, pending, succeeded and failed. Notify the buyer of completion
-only after provider confirmation. Extend the independent payment simulator for
-refund testing before connecting a real provider. Refund amounts, shipping-fee
-treatment and eligibility need explicit business rules before implementation.
-
-Handle partial returns and refunds per seller order/item without changing other
-sellers' deliveries. Preserve original order, payment and invoice history; store
-return/refund records separately. Send asynchronous buyer emails for receipt,
-review outcome and refund progress, using the existing shared email provider.
-
-Persistent working preferences: work on main; do not create branches, stage,
-commit or push. The user handles Git. Keep third-party communication behind
-interfaces and provider factories. Do not run a normal backend build over dist
-while the development watcher is running; use an isolated build for verification.
+Persistent working preferences remain to work on main and leave staging, commits
+and pushes to the user. Third-party integrations use interfaces and factories.
+Use an isolated backend build while the development watcher is running.

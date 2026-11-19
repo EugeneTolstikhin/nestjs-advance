@@ -42,13 +42,19 @@ class CreatePaymentDto {
   @IsInt() expiresAt: number;
   @IsString() @MaxLength(300) returnUrl: string;
 }
+class RefundDto {
+  @IsUUID("4") reference: string;
+  @IsUUID("4") paymentReference: string;
+  @IsInt() @Min(1) amountCents: number;
+}
 class DecisionDto {
   @IsIn(["approve", "decline", "cancel", "delayed"]) decision: string;
 }
 const origin = process.env.PAYMENT_SIMULATOR_URL ?? "http://localhost:4400";
 const secret = process.env.PAYMENT_SIMULATOR_SECRET ?? "";
 const shopOrigin = process.env.SHOP_ORIGIN ?? "http://localhost:3000";
-if (new URL(shopOrigin).origin !== shopOrigin) throw new Error("SHOP_ORIGIN must be an origin");
+if (new URL(shopOrigin).origin !== shopOrigin)
+  throw new Error("SHOP_ORIGIN must be an origin");
 let ledger: SimulatorLedger;
 const template = hbs.handlebars.compile(
   readFileSync(join(__dirname, "views/simulator.hbs"), "utf8"),
@@ -65,6 +71,13 @@ function authorize(value?: string) {
 @Controller()
 @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 class SimulatorController {
+  @Post("api/refunds") refund(
+    @Headers("authorization") auth: string,
+    @Body() body: RefundDto,
+  ) {
+    authorize(auth);
+    return ledger.refund(body);
+  }
   @Post("api/payments") create(
     @Headers("authorization") auth: string,
     @Body() body: CreatePaymentDto,

@@ -97,7 +97,8 @@
       {{#each shipments}}
       <article>
         <h2>{{trackingNumber}}</h2>
-        <p>Seller order: <code>{{reference}}</code></p>
+        <p>Reference: <code>{{reference}}</code>{{#if direction}} · {{direction}}{{/if}}</p>
+        {{#if relatedReference}}<p>Original shipment: {{relatedReference}}</p>{{/if}}
         <p>Status: <strong>{{statusLabel}}</strong> · Update {{version}}</p>
         <h3>Delivery lifecycle</h3>
         <p class="hint">Label created → Picked up → In transit → Out for delivery → Delivered. After a failed delivery, retry via In transit or choose Returning to sender → Returned to sender (received). Cancellation is available before pickup.</p>
@@ -137,6 +138,26 @@
         will create shipments here.
       </p>
       {{/each}}
+      {{#if claims}}
+      <h2>Carrier claims</h2>
+      {{#each claims}}
+      <article>
+        <h3>Claim {{reference}}</h3>
+        <p>Shipment {{shipmentReference}}</p>
+        <p>{{notes}}</p>
+        <p>Status {{status}} · {{resolution}}</p>
+        {{#if active}}
+        <form method="post" action="/claims/{{reference}}">
+          <input type="hidden" name="version" value="{{version}}">
+          <input type="hidden" name="csrf" value="{{csrf}}">
+          <label>Decision<select name="status"><option value="investigating">Investigating</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
+          <label>Explanation<textarea name="resolution" required maxlength="3000"></textarea></label>
+          <button type="submit">Update claim</button>
+        </form>
+        {{/if}}
+      </article>
+      {{/each}}
+      {{/if}}
     </main>
   </body>
 </html>

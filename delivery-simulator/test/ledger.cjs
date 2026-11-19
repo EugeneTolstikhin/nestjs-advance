@@ -95,3 +95,18 @@ test("failed delivery can return to sender and finish without reopening delivery
     ledger.close();
   }
 });
+
+test('carrier claims are idempotent, versioned and retain their terminal outcome', () => {
+  const ledger = new DeliveryLedger(':memory:');
+  try {
+    const shipment = ledger.create({ reference: randomUUID(), method: 'standard', country: 'DE' });
+    const input = { reference: randomUUID(), shipmentReference: shipment.reference, notes: 'One item missing' };
+    assert.equal(ledger.createClaim(input).status, 'open');
+    assert.equal(ledger.createClaim(input).version, 1);
+    ledger.updateClaim(input.reference, 'investigating', 'Checking parcel history', 1);
+    assert.throws(() => ledger.updateClaim(input.reference, 'approved', 'Confirmed', 1), error => error.getStatus() === 409);
+    ledger.updateClaim(input.reference, 'approved', 'Damage confirmed', 2);
+    assert.equal(ledger.getClaim(input.reference).resolution, 'Damage confirmed');
+    assert.throws(() => ledger.updateClaim(input.reference, 'rejected', 'Changed', 3), error => error.getStatus() === 409);
+  } finally { ledger.close(); }
+});

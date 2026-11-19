@@ -1,8 +1,10 @@
 import { Global, Injectable, Logger, Module, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { Queue, Worker, UnrecoverableError, type ConnectionOptions } from 'bullmq';
 
-export type JobName = 'otp-delivery' | 'media-processing' | 'payment-processing' | 'invoice-generation' | 'delivery-sync' | 'order-email';
+export type JobName = 'otp-delivery' | 'media-processing' | 'payment-processing' | 'invoice-generation' | 'delivery-sync' | 'order-email' | 'return-processing' | 'return-email';
 export interface JobPayloads {
+    'return-processing': { id: string };
+    'return-email': { id: string; noticeId: string };
     'otp-delivery': { encrypted: string };
     'media-processing': { id: string };
     'payment-processing': { checkoutId: string };

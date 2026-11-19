@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}} | Nest Shop</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="stylesheet" href="/assets/styles.css?v=18">
+    <link rel="stylesheet" href="/assets/returns.css">
+    <script src="/assets/returns.js" defer></script>
+  </head>
+  <body>
+    {{> navbar}}
+    <main class="cart-page return-page" id="returns-page" data-return-id="{{returnId}}">
+      <h1>{{title}}</h1>
+      <p id="returns-status" role="status" aria-live="polite">Loading returns…</p>
+      <div class="product-actions">
+        <button type="button" id="returns-refresh" class="nav-button nav-button-secondary">Refresh</button>
+        <a href="/returns" class="nav-button nav-button-secondary">All returns</a>
+        <a href="/shop" class="nav-button nav-button-secondary">Continue shopping</a>
+      </div>
+      <div id="returns-content"></div>
+      <noscript>Enable JavaScript to request and review returns.</noscript>
+    </main>
+    {{> footer}}
+  </body>
+</html>

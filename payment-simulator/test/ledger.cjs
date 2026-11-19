@@ -36,3 +36,16 @@ test('rejects foreign return destinations and treats lookup strings as literal p
  assert.throws(() => ledger.get("x'; DROP TABLE payments; --"), error => error.getStatus() === 404);
  assert.equal(ledger.create(request()).status, 'pending');
 });
+
+test('refunds persist, reuse their reference and cannot exceed the captured amount', () => {
+ const body = request(); const payment = ledger.create(body);
+ ledger.decide(payment.paymentUrl.split('/').pop(), 'approve');
+ const refund = { reference: randomUUID(), paymentReference: body.reference, amountCents: 400 };
+ assert.equal(ledger.refund(refund).status, 'succeeded');
+ assert.equal(ledger.refund(refund).amountCents, 400);
+ assert.throws(() => ledger.refund({ ...refund, amountCents: 500 }), error => error.getStatus() === 409);
+ ledger.close(); ledger = new SimulatorLedger(join(directory, 'ledger.sqlite'), origin, shop);
+ assert.equal(ledger.refund(refund).status, 'succeeded');
+ assert.throws(() => ledger.refund({ ...refund, reference: randomUUID(), amountCents: 600 }), error => error.getStatus() === 409);
+ assert.equal(ledger.refund({ ...refund, reference: randomUUID(), amountCents: 599 }).status, 'succeeded');
+});

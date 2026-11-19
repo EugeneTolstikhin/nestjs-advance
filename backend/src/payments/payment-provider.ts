@@ -20,12 +20,21 @@ export interface ProviderPayment extends PaymentRequest {
   status: ProviderStatus;
   paymentUrl: string;
 }
+export interface RefundRequest {
+  reference: string;
+  paymentReference: string;
+  amountCents: number;
+}
+export interface ProviderRefund extends RefundRequest {
+  status: 'pending' | 'succeeded' | 'failed';
+}
 export interface PaymentProvider {
   readonly simulated: boolean;
   supports(method: string): boolean;
   create(request: PaymentRequest): Promise<ProviderPayment>;
   get(reference: string): Promise<ProviderPayment>;
   cancel(reference: string): Promise<ProviderPayment>;
+  refund?(request: RefundRequest): Promise<ProviderRefund>;
 }
 
 class SimulatorProvider implements PaymentProvider {
@@ -65,6 +74,36 @@ class SimulatorProvider implements PaymentProvider {
       throw new ServiceUnavailableException(
         'Invalid payment provider response',
       );
+    return result;
+  }
+  async refund(request: RefundRequest): Promise<ProviderRefund> {
+    const response = await fetch(`${this.url}/api/refunds`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(5000),
+      redirect: 'error',
+    });
+    if (!response.ok) {
+      if (
+        response.status >= 400 &&
+        response.status < 500 &&
+        ![408, 429].includes(response.status)
+      )
+        return { ...request, status: 'failed' };
+      throw new ServiceUnavailableException('Refund provider unavailable');
+    }
+    const result: ProviderRefund = await response.json();
+    if (
+      result.reference !== request.reference ||
+      result.paymentReference !== request.paymentReference ||
+      result.amountCents !== request.amountCents ||
+      !['pending', 'succeeded', 'failed'].includes(result.status)
+    )
+      throw new ServiceUnavailableException('Invalid refund provider response');
     return result;
   }
   create(request: PaymentRequest) {
